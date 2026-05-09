@@ -1,0 +1,14 @@
+{
+  "id": "REPLACE_short_snake_case_id",
+  "name": "REPLACE Human-readable name",
+  "kind": "hijack",
+  "start_iso": "YYYY-MM-DDTHH:MM:SSZ",
+  "end_iso": "YYYY-MM-DDTHH:MM:SSZ",
+  "expected_detectors": ["moas"],
+  "source_url": "https://REPLACE.with.primary.source",
+  "prefix": null,
+  "attacker_asn": null,
+  "victim_asn": null,
+  "notes": "Explain time precision, scope, and anything you have not directly verified.",
+  "verified": false
+}

@@ -22,6 +22,9 @@ app.add_typer(ingest_app, name="ingest")
 detect_app = typer.Typer(help="Run detectors over stored signals.")
 app.add_typer(detect_app, name="detect")
 
+benchmark_app = typer.Typer(help="Replay labeled historical incidents.")
+app.add_typer(benchmark_app, name="benchmark")
+
 console = Console()
 
 
@@ -146,11 +149,62 @@ def detect_bgp(
     )
 
 
-@app.command("benchmark")
-def benchmark() -> None:
-    """Replay historical incidents and report metrics (not implemented yet)."""
-    console.print("[yellow]benchmark: not implemented yet[/]")
-    raise typer.Exit(code=1)
+@benchmark_app.command("replay")
+def benchmark_replay(
+    incidents_dir: Annotated[
+        Path,
+        typer.Option(
+            "--incidents",
+            help="Directory of incident JSON files (see data/incidents/_README.md).",
+        ),
+    ],
+    store_path: Annotated[
+        Path,
+        typer.Option(
+            "--store",
+            help="Path to a populated BGP DuckDB store covering the incident windows.",
+        ),
+    ],
+    chunk: Annotated[
+        str,
+        typer.Option("--chunk", help="Sub-window length used to approximate latency."),
+    ] = "1m",
+) -> None:
+    """Replay every incident in the directory through the BGP detectors."""
+    from netpulse.benchmark.loader import load_incidents
+    from netpulse.benchmark.metrics import summarize
+    from netpulse.benchmark.replay import replay_bgp_incident
+    from netpulse.detectors.moas import MOASDetector
+    from netpulse.storage.duckdb_store import BGPStore
+
+    chunk_us = _parse_duration_to_us(chunk)
+    incidents = load_incidents(incidents_dir)
+    if not incidents:
+        console.log(f"No incidents found in {incidents_dir}.")
+        raise typer.Exit(code=1)
+
+    detectors = [MOASDetector()]
+    results = []
+    store = BGPStore(store_path)
+    try:
+        for inc in incidents:
+            result = replay_bgp_incident(inc, store, detectors, chunk_us=chunk_us)
+            status = "DETECTED" if result.detected else "missed"
+            latency = (
+                f"{result.latency_us / 1_000_000:.1f}s" if result.latency_us is not None else "n/a"
+            )
+            console.log(f"{inc.id}: {status} (latency={latency}, alerts={len(result.alerts)})")
+            results.append(result)
+    finally:
+        store.close()
+
+    summary = summarize(results)
+    console.log(
+        f"summary: {summary.detected_count}/{summary.total_incidents} detected "
+        f"(rate={summary.detection_rate:.2%}); "
+        f"mean_latency_us={summary.mean_latency_us}; "
+        f"median_latency_us={summary.median_latency_us}"
+    )
 
 
 @app.command("serve")

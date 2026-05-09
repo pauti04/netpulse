@@ -1,0 +1,14 @@
+{
+  "id": "youtube_pakistan_2008",
+  "name": "YouTube / Pakistan Telecom hijack",
+  "kind": "hijack",
+  "start_iso": "2008-02-24T00:00:00Z",
+  "end_iso": "2008-02-25T00:00:00Z",
+  "expected_detectors": ["moas"],
+  "source_url": "https://www.ripe.net/publications/news/youtube-hijacking-a-ripe-ncc-ris-case-study/",
+  "prefix": "208.65.153.0/24",
+  "attacker_asn": 17557,
+  "victim_asn": 36561,
+  "notes": "AS17557 (Pakistan Telecom) announced 208.65.153.0/24, a more-specific of YouTube's 208.65.152.0/22, propagating beyond Pakistan via PCCW (AS3491). The window here is intentionally a 24h calendar day in UTC because the precise UTC minutes of the announcement and withdrawal in this fixture have not been re-verified against the cited RIPE case study; tighten and set verified=true once that has been done.",
+  "verified": false
+}

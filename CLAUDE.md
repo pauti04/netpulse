@@ -97,8 +97,16 @@ Data flow: `ingest -> storage -> features -> detectors -> alerts -> (publishers 
       than one origin AS in the window. Wired up under `netpulse detect
       bgp`. Future work (v2): baseline-window comparison to suppress
       chronic multi-origin prefixes (anycast).
-- [ ] Phase 3: Replay harness + first 20 incidents — _next_
-- [ ] Phase 4: RIPE Atlas integration
+- [~] Phase 3: Replay harness + incident dataset — harness is complete
+      (`netpulse benchmark replay`, expanding-window latency, summary
+      metrics) but the dataset has only one populated example
+      (`youtube_pakistan_2008.json`); the remaining ~19 incidents are
+      blocked on the user populating them from primary sources per the
+      hard rule against fabricated incident data.
+- [ ] Phase 4: RIPE Atlas integration — _blocked_: cannot write code
+      against `ripe.atlas.cousteau` / `ripe.atlas.sagan` response shapes
+      without seeing real output (hard rule 2). User to paste a real
+      measurement response before this phase can start.
 - [ ] Phase 4: RIPE Atlas integration
 - [ ] Phase 5: Multi-signal fusion
 - [ ] Phase 6: DNS signal
