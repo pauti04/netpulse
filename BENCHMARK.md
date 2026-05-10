@@ -23,6 +23,8 @@ walkthrough.
 
 ## Per-hour table
 
+![Per-hour MOAS vs sub-prefix alert counts](docs/img/fpr_per_hour.svg)
+
 ```
 window                                        ann     wd    pfxs  moas  sub
 2008-02-23 00:00 UTC (background)           43,385  5,665  3,660    14    0
