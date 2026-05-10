@@ -7,22 +7,43 @@
 Open-source detector for Internet outages and BGP anomalies, evaluated
 against real RIPE RIS archive data with a public reproducible benchmark.
 
+![netpulse demo](docs/img/demo.gif)
+
+## Headline result: multi-signal fusion on a real incident
+
+On the 2018-11-12 MainOne → Google route leak, two independent
+observability signals both fire on the same window of real archive data
+and a small correlator binds them into one critical alert:
+
+```
+BGP signal (route_leak / CAIDA serial-2 20181101 snapshot):
+  Paths inspected:                         7,411
+  MainOne-shape leak alerts (37282→15169): 1,985
+
+Atlas signal (msm 1999544 ping 8.8.8.8):
+  Baseline median RTT (pre-21:06Z):           38.0 ms
+  Window   median RTT (21:06–22:30Z):          49.9 ms  (1.31× baseline)
+
+→ 1 fused critical alert  ·  reproducible via scripts/fusion_demo.py
+```
+
+The first AS37282 transit observation at RRC00 is **2018-11-12
+21:12:16 UTC** — to the second of BGPmon's published onset.
+[BENCHMARK.md](BENCHMARK.md) walks through the full methodology and the
+temporal-drift detail that matters: the route-leak detector requires the
+*time-aligned* CAIDA snapshot; with the current 2026-05 dataset the same
+query produces 0 alerts on this 2018 incident.
+
 ![YouTube/Pakistan hijack onset at RRC00](docs/img/youtube_2008_onset.svg)
 
 ## What it does
 
 Pulls BGP updates from RIPE RIS or RouteViews, normalizes them into a
-DuckDB single-file store, and runs detectors over rolling windows. The
-canonical 2008 YouTube/Pakistan hijack — a sub-prefix attack that the
-textbook MOAS detector cannot catch — is detected with **0 false positives
-across 13,961 prefixes in 4 background hours**. Full numbers and
-methodology in [BENCHMARK.md](BENCHMARK.md); the discovery write-up that
-explains why supernet-aware detection is required is in
-[docs/why-subprefix.md](docs/why-subprefix.md).
-
-The second signal layer (RIPE Atlas active probes) is in place and
-verified against the live Atlas API; multi-signal fusion across BGP and
-Atlas is the next milestone.
+DuckDB single-file store, and runs detectors over rolling windows. Six
+detectors covering MOAS, sub-prefix hijack (RFC 6811-style supernet
+check), withdraw-spike, RPKI Origin Validation (RFC 6811), route-leak
+(RFC 7908 valley-free), and Atlas loss spike. Plus a correlator that
+fuses BGP + Atlas alerts on time windows.
 
 ## Try it now
 
