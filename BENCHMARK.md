@@ -240,6 +240,54 @@ This is the bottleneck previously called out as future work; targeted
 ingest is now seconds-to-minutes for narrow questions instead of
 minutes-to-hours.
 
+## Multi-signal fusion (BGP + Atlas)
+
+The project's "multi-signal" tagline is concrete on one labeled incident:
+**the 2018-11-12 MainOne / Google route leak**. Two independent
+observability signals both fire on the same window of real data, and a
+small correlator emits a single fused critical alert when both hit.
+
+```
+======================================================================
+MULTI-SIGNAL FUSION  --  MainOne 2018 leak  --  REAL DATA
+======================================================================
+
+BGP signal (route_leak / CAIDA serial-2 20181101 snapshot):
+  Paths inspected:                         7,411
+  Total leak-shape alerts:                 2,591
+  MainOne-shape (path 37282 -> 15169):     1,985
+
+Atlas signal (msm 1999544 ping 8.8.8.8):
+  Baseline median RTT (pre-21:06Z):         38.0 ms
+  Window   median RTT (21:06-22:30Z):       49.9 ms
+  Ratio:                                    1.31x
+
+Fusion (rtt_jump_factor = 1.15x):
+  FUSED ALERTS:                            1
+
+  detector: multi_signal_fusion
+  severity: critical
+  summary:  BGP anomaly (1985 alerts from ['route_leak']) co-occurred
+            with Atlas median-RTT jump from 38.0ms to 49.9ms (1.31x)
+```
+
+Reproducible end-to-end with `scripts/fusion_demo.py`. Notes:
+
+- The route-leak detector requires the **time-aligned** CAIDA snapshot
+  (`20181101.as-rel2`, 1.09M relationships); the current 2026-05
+  snapshot has too much temporal drift (many AS pairs end up
+  `unknown`) and the same query produces only 591 generic alerts and
+  zero MainOne-shape alerts. Time-aligning the relationships
+  data is what unlocks the leak detection.
+- The Atlas RTT jump (1.31x median, 38.0 → 49.9 ms) is small in
+  absolute terms but consistent: probes whose paths got rerouted
+  through Nigeria/China/Russia saw the longer round-trip exactly
+  during the documented 21:12–22:30 leak window.
+- `MultiSignalCorrelator` itself is intentionally tiny — three
+  inputs (BGP alerts, baseline RTT, window RTT), one threshold, one
+  potential alert. Not a fusion *framework*; just a correlator that
+  binds the two existing detector outputs.
+
 ## RPKI Origin Validation (RFC 6811)
 
 `netpulse ingest rpki` pulls a fresh snapshot of Validated ROA Payloads

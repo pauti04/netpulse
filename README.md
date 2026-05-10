@@ -111,6 +111,12 @@ prefixes total) using a real RIB-derived baseline:
 | `withdraw_spike`      | 0 alerts         |           0 alerts |
 
 Plus:
+- **Multi-signal fusion** — on the MainOne 2018 leak, the BGP route-leak
+  detector fires (1,985 alerts on the actual leak shape using
+  time-aligned CAIDA serial-2 data) at the same time as RIPE Atlas
+  median RTT to 8.8.8.8 jumps **1.31× above baseline** (38.0 ms → 49.9
+  ms). `MultiSignalCorrelator` binds them into one critical alert.
+  Reproducible: [`scripts/fusion_demo.py`](scripts/fusion_demo.py).
 - **RPKI Origin Validation** (RFC 6811) — `netpulse ingest rpki` pulls
   Cloudflare's published rpki.json (**859k VRPs in ~20 s** via
   DuckDB-native bulk load) and the validator gives the standard
