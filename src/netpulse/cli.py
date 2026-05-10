@@ -83,6 +83,16 @@ def ingest_bgp(
             help="'updates' (announces+withdraws) or 'ribs' (RIB snapshots).",
         ),
     ] = "updates",
+    filter_str: Annotated[
+        str | None,
+        typer.Option(
+            "--filter",
+            help=(
+                "libBGPStream filter (e.g. 'prefix any 1.1.1.0/24'). Native "
+                "filtering is many times faster than no filter."
+            ),
+        ),
+    ] = None,
 ) -> None:
     """Pull a window of BGP records from a collector into a DuckDB store."""
     from netpulse.ingest.bgp import pull_bgp_window
@@ -98,11 +108,18 @@ def ingest_bgp(
 
     console.log(
         f"Pulling collector={collector} record_type={record_type} "
-        f"start_us={start_us} end_us={end_us} -> {out}"
+        f"start_us={start_us} end_us={end_us} filter={filter_str!r} -> {out}"
     )
     store = BGPStore(out)
     try:
-        count = pull_bgp_window(collector, start_us, end_us, store, record_type=record_type)
+        count = pull_bgp_window(
+            collector,
+            start_us,
+            end_us,
+            store,
+            record_type=record_type,
+            filter_str=filter_str,
+        )
     finally:
         store.close()
     console.log(f"Wrote {count} BGP records.")

@@ -134,19 +134,55 @@ and detector evaluation is well under one millisecond.
   cannot be validated against Atlas data — fusion benchmarking starts
   with a post-2010 incident.
 
+## A real-world finding: not every documented hijack reaches public RIS
+
+While trying to add the **2024-06-27 Cloudflare 1.1.1.1 incident** to
+this benchmark, an unfiltered 15-minute pull of RRC00 around the
+documented 18:51:00 UTC onset took 5+ CPU-minutes and showed no
+`1.1.1.x` traffic at all. A targeted libBGPStream filter
+(`prefix any 1.1.1.0/24`) finished the same 5-minute window in 30
+seconds and confirmed: across **eight RIS collectors** (rrc00, rrc01,
+rrc03, rrc04, rrc11, rrc14, rrc18, rrc25), zero sub-prefix
+announcements of `1.1.1.0/24` appeared during the documented event,
+and AS267613 itself never originated a route any of those collectors
+saw. Per Cloudflare's writeup, the hijack reached "300 networks in 70
+countries" but the host-route `/32` was filtered by upstreams before
+reaching RIS-monitored peers — consistent with operators applying the
+maximum-prefix-length recommendations in [RFC 7454][rfc7454].
+
+**Implication for an honest benchmark:** the 2024 case is not
+reproducible from public RIS data alone. A complete corpus would need
+RouteViews collectors (different peers) and / or operator-direct BGP
+feeds. The detector logic is unchanged; the visibility is the gap.
+
+[rfc7454]: https://www.rfc-editor.org/rfc/rfc7454
+
+## Faster ingest with libBGPStream filters
+
+The `--filter` flag passes a libBGPStream filter expression through to
+the C library, dropping non-matching elements before they cross into
+Python. Empirically, on the 2024-06-27 18:50–19:10 UTC RRC00 window:
+
+| Filter                            | Wall time | Records seen by Python |
+| --------------------------------- | --------: | ---------------------: |
+| (none, full firehose)             |    > 5min |                  > 1M  |
+| `prefix any 1.1.0.0/16`           |       30s |                     58 |
+| `prefix any 1.1.1.0/24`           |       30s |                      0 |
+
+This is the bottleneck previously called out as future work; targeted
+ingest is now seconds-to-minutes for narrow questions instead of
+minutes-to-hours.
+
 ## Open
 
-- **Next incident** — 2018-04-24 Amazon Route 53 / MyEtherWallet hijack
-  (AS10297 announced `/24` more-specifics inside Amazon's
-  `205.251.192.0/18`; primary source:
-  <https://blog.cloudflare.com/bgp-leaks-and-crypto-currencies/>). The
-  detector and harness already handle this shape; the limiter is the
-  ingest-path bottleneck on 2018-volume multi-hop RRC00 updates, which
-  also blocks full-RIB ingestion.
-- **Streaming detection** — `netpulse stream` against the RIS Live
-  WebSocket would tighten reported latency from "chunk size" to
-  "first-qualifying-update arrival."
-- **Faster ingest path** — pybgpstream's pure-Python iteration is the
-  bottleneck. Filtering inside libBGPStream (its native filter language)
-  could give 100×+ speedups and unlock both larger backgrounds and the
-  full RIB baseline.
+- **More labeled incidents from primary sources.** Schema and citation
+  rules: `data/incidents/_README.md`. Candidate next: 2018-04-24
+  Amazon Route 53 / MyEtherWallet (AS10297 sub-prefix hijack of
+  Amazon's `205.251.192.0/18`).
+- **Cross-collector evidence aggregation.** The Cloudflare/2024
+  finding makes RouteViews integration concrete — a single-collector
+  view systematically misses incidents that get filtered before
+  reaching that collector's peers.
+- **RPKI-based baselines.** The hand-curated one-row baselines work
+  for individual incidents; production systems would derive the
+  baseline from RPKI ROAs (RFCs 6480 / 8893).
