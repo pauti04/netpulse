@@ -1,16 +1,17 @@
 # Benchmark — BGP detectors on real RIPE RIS archive data
 
 The point of NetPulse is **honest evaluation against labeled historical
-incidents**. Two cases are populated, of distinct *shape* — one a
-sub-prefix hijack, one a route leak — and the detector roster's
-coverage of each is reported as-is.
+incidents**. Three cases are populated covering two distinct shapes — two
+sub-prefix hijacks and one RFC 7908 Type-1 leak — and the detector
+roster's coverage of each is reported as-is.
 
 ## Per-incident outcomes
 
-| Incident                          | Shape           | Catching detector | Detected? | Real-data evidence in the pull |
-| --------------------------------- | --------------- | ----------------- | :-------: | ----- |
-| 2008-02-24 YouTube / Pakistan     | sub-prefix hijack | `subprefix_hijack` |    ✅     | first AS17557 announcement of `208.65.153.0/24` at RRC00: **2008-02-24 18:47:57Z**, matches the RIPE NCC case study |
-| 2018-11-12 MainOne → Google leak  | RFC 7908 Type-1 leak | `route_leak` |    ✅     | first AS37282 transit observation at RRC00: **2018-11-12 21:12:16Z**, matches BGPmon's reported onset to the second; 203 distinct Google prefixes seen leaked; **2,391 leak alerts** fire on the archive paths with a hand-curated 7-pair relationship subset |
+| Incident                          | Shape                  | Catching detector  | Detected? | Real-data evidence in the pull |
+| --------------------------------- | ---------------------- | ------------------ | :-------: | ----- |
+| 2008-02-24 YouTube / Pakistan     | sub-prefix hijack      | `subprefix_hijack` |    ✅     | first AS17557 announcement of `208.65.153.0/24` at RRC00: **2008-02-24 18:47:57Z**, matches the RIPE NCC case study |
+| 2018-04-24 MyEtherWallet          | sub-prefix hijack      | `subprefix_hijack` |    ✅     | first AS10297 announcement of `205.251.192.0/24` at RRC00: **2018-04-24 11:05:50Z**; all 5 hijacked /24s detected as more-specifics of Amazon AS16509's /23 supernets, 0 FPs |
+| 2018-11-12 MainOne → Google leak  | RFC 7908 Type-1 leak   | `route_leak`       |    ✅     | first AS37282 transit observation at RRC00: **2018-11-12 21:12:16Z**, matches BGPmon's reported onset to the second; 203 distinct Google prefixes seen leaked; **1,985 MainOne-shape leak alerts** with the time-aligned CAIDA serial-2 (20181101) snapshot |
 
 ## BGP false-positive survey (sub-prefix detector, real RIB baseline)
 
