@@ -3,20 +3,31 @@
 Multi-signal Internet outage and BGP anomaly detector with a public,
 reproducible benchmark.
 
-<!-- badges: populated when CI is wired up to a remote -->
-<!-- ![CI](https://github.com/OWNER/netpulse/actions/workflows/test.yml/badge.svg) -->
-<!-- ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg) -->
+The differentiator is honest evaluation: detector latency and
+precision/recall reported against labeled historical incidents pulled
+from the real RIPE RIS archive, not against synthetic fixtures.
+
+## Headline result
+
+The supernet-aware sub-prefix hijack detector catches the canonical
+**YouTube / Pakistan Telecom 2008 hijack** on real RRC00 archive data:
+
+| Metric                                | Value     |
+| ------------------------------------- | --------- |
+| Incidents detected                    | 1 / 1     |
+| Latency from documented onset         | **3.0 s** at 1-minute replay chunks |
+| False positives in surrounding hour   | 0         |
+
+Full methodology, reproduction commands, and a write-up of why MOAS
+doesn't catch this case: [BENCHMARK.md](BENCHMARK.md) and
+[docs/why-subprefix.md](docs/why-subprefix.md).
 
 ## Status
 
-Pre-alpha. Phases 0–3 (setup, BGP ingestion, MOAS + sub-prefix hijack
-detectors, replay harness with one labeled incident) are working
-end-to-end. **Real benchmark numbers are in [BENCHMARK.md](BENCHMARK.md):**
-the sub-prefix detector catches the canonical YouTube/Pakistan 2008 hijack
-on real RIPE RIS archive data with zero false positives in the surrounding
-hour, at a latency bounded by the configured chunk size.
-
-See [CLAUDE.md](CLAUDE.md) for full project context, roadmap, and rules.
+Pre-alpha; phases 0–3 of the roadmap in [CLAUDE.md](CLAUDE.md) are
+working end-to-end (setup, BGP ingestion, MOAS + sub-prefix hijack
+detectors, replay harness with one labeled incident). Phases 4+ (RIPE
+Atlas, DNS, multi-signal fusion, dashboard) are not yet started.
 
 ## Quickstart
 
