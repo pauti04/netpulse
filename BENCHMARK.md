@@ -103,6 +103,27 @@ underlying detector evaluates a window in well under a second.
 - **No Atlas / DNS signals yet.** Multi-signal fusion (Phases 4–6) starts
   after we have real Atlas response shapes to write against.
 
+## Open: next incident to add
+
+The 2018-04-24 Amazon Route 53 / MyEtherWallet hijack (AS10297 announced
+`/24` more-specifics inside Amazon's `205.251.192.0/18` allocation,
+redirecting Route 53 DNS for ~2 hours; primary source:
+<https://blog.cloudflare.com/bgp-leaks-and-crypto-currencies/>). The
+detector and harness already handle this shape; what remains is:
+
+1. Pull a 30-minute window of RRC00 updates around the documented onset
+   (slow today: 2018-era updates at multi-hop volume run several minutes
+   in the current ingest path — same bottleneck as the RIB pull above).
+2. Find the first AS10297 announcement of a Route 53 sub-prefix in the
+   pulled data, and use that timestamp as `onset_iso`.
+3. Drop a new fixture under `data/incidents/myetherwallet_2018.json`
+   citing the Cloudflare writeup and the ARIN WHOIS for
+   `205.251.192.0/18` (allocated to Amazon, AS16509).
+4. Add a one-line baseline seed mirroring `scripts/seed_youtube_baseline.py`.
+
+Skipped from this push because the ingest exceeded the time budget; the
+work above is well-scoped and unblocked.
+
 ## Pulled-data files
 
 The DuckDB stores produced by the steps above are not committed — they are
