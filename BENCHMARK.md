@@ -189,9 +189,15 @@ uv run netpulse detect leak \
     --start 2018-11-12T21:00:00 --duration 90m
 ```
 
-A full CAIDA serial-2 load (open work) would tighten the unknown-step
-count and generalize to any archive window without per-incident
-hand-curation.
+**Result on real CAIDA data:** `netpulse ingest asrel` pulls the
+current month's serial-2 snapshot (~739k inferred relationships in
+~7 s), and `netpulse detect leak` against the same MainOne archive
+emits 591 leak alerts. The number is lower than the hand-curated 2,391
+because the 2026 CAIDA snapshot has temporal drift versus 2018
+relationships — the detector intentionally abstains rather than
+guessing on `unknown` steps. A loader for historical CAIDA snapshots
+(2018-11.as-rel2 etc.) would close that drift gap; CAIDA publishes
+all monthly archives.
 
 [caida]: https://publicdata.caida.org/datasets/as-relationships/serial-2/
 
@@ -272,19 +278,25 @@ the right choice.
 
 ## Open
 
-- **AS-relationships ingest** so the route-leak detector runs on the
-  archive data, not just unit tests. CAIDA's serial-2 dataset is the
-  standard source (~5 MB compressed, monthly).
 - **More labeled incidents from primary sources.** Schema and citation
-  rules: `data/incidents/_README.md`. Candidate next: 2018-04-24
-  Amazon Route 53 / MyEtherWallet (AS10297 sub-prefix hijack of
-  Amazon's `205.251.192.0/18`).
+  rules: `data/incidents/_README.md`. Candidates the harness already
+  supports out of the box: 2018-04-24 Amazon Route 53 / MyEtherWallet
+  (sub-prefix hijack), 2010-04 China Telecom, 2017 Google→NTT (a
+  different leak), 2019 Verizon→CenturyLink+Cloudflare. Each is
+  research, not code.
 - **Cross-collector evidence aggregation.** The Cloudflare/2024
   finding makes RouteViews integration concrete — a single-collector
   view systematically misses incidents that get filtered before
   reaching that collector's peers.
-- **Per-incident store routing in the harness.** Currently the
-  benchmark replay command takes one `--store`; with two incidents
-  spanning different years, each needs its own store. Adding an
-  optional `bgp_store_path` field to incident JSON would let one
-  command score the whole corpus.
+- **Multi-signal fusion against an actual incident.** Atlas + BGP
+  signals exist but never co-fire on the same incident. Atlas
+  predates 2008, so the YouTube case can't fuse; a post-2010 incident
+  with both BGP propagation and probe-visible reachability impact
+  would deliver on the multi-signal tagline.
+- **Streaming-mode latency reporting.** Replay latency is chunk-bounded;
+  in stream mode the alert fires on the first qualifying update.
+  Adding a streaming-mode benchmark would tighten the headline number.
+
+(Items closed in this round: native bulk-load for RPKI ingest
+[~20 s], CAIDA serial-2 loader [~7 s], per-incident `bgp_store_path`
+in the harness, alert deduplication.)

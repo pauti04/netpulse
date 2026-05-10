@@ -488,12 +488,15 @@ def benchmark_replay(
         ),
     ],
     store_path: Annotated[
-        Path,
+        Path | None,
         typer.Option(
             "--store",
-            help="Path to a populated BGP DuckDB store covering the incident windows.",
+            help=(
+                "Fallback BGP DuckDB store. Per-incident 'bgp_store_path' in "
+                "the JSON takes precedence."
+            ),
         ),
-    ],
+    ] = None,
     chunk: Annotated[
         str,
         typer.Option("--chunk", help="Sub-window length used to approximate latency."),
@@ -506,7 +509,12 @@ def benchmark_replay(
         ),
     ] = None,
 ) -> None:
-    """Replay every incident in the directory through the BGP detectors."""
+    """Replay every incident in the directory through the BGP detectors.
+
+    Each incident may declare its own ``bgp_store_path`` (resolved relative
+    to the incident JSON file's directory) so a corpus spanning different
+    years can be scored in one command.
+    """
     from netpulse.benchmark.loader import load_incidents
     from netpulse.benchmark.metrics import summarize
     from netpulse.benchmark.replay import replay_bgp_incident
@@ -534,18 +542,36 @@ def benchmark_replay(
         detectors.append(SubPrefixHijackDetector(baseline))
 
     results = []
-    store = BGPStore(store_path)
-    try:
-        for inc in incidents:
-            result = replay_bgp_incident(inc, store, detectors, chunk_us=chunk_us)
-            status = "DETECTED" if result.detected else "missed"
-            latency = (
-                f"{result.latency_us / 1_000_000:.1f}s" if result.latency_us is not None else "n/a"
+    incidents_dir_abs = incidents_dir.resolve()
+    for inc in incidents:
+        if inc.bgp_store_path is not None:
+            store_for_inc = (incidents_dir_abs / inc.bgp_store_path).resolve()
+        elif store_path is not None:
+            store_for_inc = store_path
+        else:
+            console.log(
+                f"{inc.id}: no store specified (no bgp_store_path in JSON, no --store), skipping"
             )
-            console.log(f"{inc.id}: {status} (latency={latency}, alerts={len(result.alerts)})")
-            results.append(result)
-    finally:
-        store.close()
+            continue
+        if not store_for_inc.exists():
+            console.log(f"{inc.id}: store {store_for_inc} not found, skipping")
+            continue
+
+        store = BGPStore(store_for_inc)
+        try:
+            result = replay_bgp_incident(inc, store, detectors, chunk_us=chunk_us)
+        finally:
+            store.close()
+
+        status = "DETECTED" if result.detected else "missed"
+        latency = (
+            f"{result.latency_us / 1_000_000:.1f}s" if result.latency_us is not None else "n/a"
+        )
+        console.log(
+            f"{inc.id}: {status} (store={store_for_inc.name}, "
+            f"latency={latency}, alerts={len(result.alerts)})"
+        )
+        results.append(result)
 
     summary = summarize(results)
     console.log(
@@ -598,10 +624,14 @@ def stream(
         console.log(f"loaded baseline: {len(baseline.origins)} prefixes")
         detectors.append(SubPrefixHijackDetector(baseline))
 
+    from netpulse.alerts.dedup import AlertDeduper
+
     publisher = StdoutPublisher(console=console)
+    deduper = AlertDeduper()
     rolling: deque[StreamUpdate] = deque()
     last_check_us = 0
     total_received = 0
+    suppressed = 0
 
     console.log(f"connecting to RIS Live (window={window}, interval={interval})...")
     try:
@@ -631,11 +661,15 @@ def stream(
 
             n_alerts = 0
             for det in detectors:
-                n_alerts += publisher.publish_all(det.score(feats))
+                raw_alerts = det.score(feats)
+                fresh = list(deduper.filter(raw_alerts))
+                suppressed += len(raw_alerts) - len(fresh)
+                n_alerts += publisher.publish_all(fresh)
 
             console.log(
                 f"received={total_received} window_updates={len(rolling)} "
-                f"prefixes={len(feats.origins_by_prefix)} alerts={n_alerts}"
+                f"prefixes={len(feats.origins_by_prefix)} alerts={n_alerts} "
+                f"suppressed_dups={suppressed}"
             )
     except KeyboardInterrupt:
         console.log("stopped by user")

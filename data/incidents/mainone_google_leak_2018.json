@@ -6,6 +6,7 @@
   "end_iso": "2018-11-12T22:35:00Z",
   "onset_iso": "2018-11-12T21:12:16Z",
   "expected_detectors": ["route_leak"],
+  "bgp_store_path": "../mainone_2018.duckdb",
   "source_url": "https://manrs.org/2018/11/route-leak-causes-major-google-outage/",
   "prefix": null,
   "attacker_asn": 37282,

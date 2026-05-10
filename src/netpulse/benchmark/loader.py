@@ -58,6 +58,7 @@ def _incident_from_dict(payload: dict[str, Any], origin: Path) -> Incident:
             "attacker_asn",
             "victim_asn",
             "onset_iso",
+            "bgp_store_path",
             "notes",
             "verified",
         }
@@ -75,6 +76,7 @@ def _incident_from_dict(payload: dict[str, Any], origin: Path) -> Incident:
         attacker_asn=payload.get("attacker_asn"),
         victim_asn=payload.get("victim_asn"),
         onset_us=onset_us,
+        bgp_store_path=payload.get("bgp_store_path"),
         notes=str(payload.get("notes", "")),
         verified=bool(payload.get("verified", False)),
         extra=extra,
