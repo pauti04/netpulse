@@ -32,10 +32,12 @@ Atlas, DNS, multi-signal fusion, dashboard) are not yet started.
 ## Quickstart
 
 ```sh
-# Install (requires uv: https://docs.astral.sh/uv/)
+# Install core deps (no native libraries needed)
 uv sync
 
 # Pull one hour of BGP updates from RRC00 into a DuckDB file
+# (requires the optional [bgp] extra and libBGPStream — see below)
+uv sync --extra bgp
 uv run netpulse ingest bgp \
     --collector rrc00 \
     --start 2024-01-01T00:00:00 \
@@ -43,23 +45,21 @@ uv run netpulse ingest bgp \
     --out data/bgp.duckdb
 ```
 
-### Native dependency: libBGPStream
+### BGP ingestion — optional extra
 
-`pybgpstream` is a Python wrapper around the C library `libBGPStream`, which
-must be installed before `uv sync` can build the wheel.
+`pybgpstream` is a Python wrapper around the C library `libBGPStream` and is
+not in the default install. Detection, replay, and the test suite work
+without it; only `netpulse ingest bgp` needs it.
 
-- **macOS:** `brew install bgpstream` (in homebrew-core; pulls in `wandio` and
-  `librdkafka`).
-- **Linux / others:** see <https://bgpstream.caida.org/docs/install>.
-
-If `uv sync` cannot find `bgpstream_elem.h` after installing the library,
-point the build at Homebrew's prefix:
-
-```sh
-CFLAGS="-I$(brew --prefix)/include" \
-LDFLAGS="-L$(brew --prefix)/lib" \
-uv sync
-```
+- **macOS:** `brew install bgpstream` (homebrew-core; pulls in `wandio` and
+  `librdkafka`), then:
+  ```sh
+  CFLAGS="-I$(brew --prefix)/include" \
+  LDFLAGS="-L$(brew --prefix)/lib" \
+  uv sync --extra bgp
+  ```
+- **Linux / others:** see <https://bgpstream.caida.org/docs/install>, then
+  `uv sync --extra bgp`.
 
 ## Development
 

@@ -12,19 +12,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # libBGPStream is a C library that pybgpstream binds to. CAIDA publishes
-      # apt packages; if the install step below stops working, see
-      # https://bgpstream.caida.org/docs/install for the current instructions.
-      - name: Install libBGPStream
-        run: |
-          set -e
-          curl -fsSL https://pkg.caida.org/os/ubuntu/keyring.gpg \
-              | sudo tee /etc/apt/trusted.gpg.d/caida.gpg > /dev/null
-          codename=$(lsb_release -sc)
-          echo "deb https://pkg.caida.org/os/ubuntu ${codename} main" \
-              | sudo tee /etc/apt/sources.list.d/caida.list
-          sudo apt-get update
-          sudo apt-get install -y libbgpstream2-dev
+      # CI does not install libBGPStream / pybgpstream. The BGP ingest path
+      # is in the optional `[bgp]` extra; unit tests and lint do not exercise
+      # it. Wiring up libBGPStream in CI is open work — see BENCHMARK.md.
 
       - name: Install uv
         uses: astral-sh/setup-uv@v3
