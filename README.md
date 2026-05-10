@@ -87,18 +87,18 @@ which is what makes the historical benchmark reproducible.
 
 ## Headline numbers
 
-Two labeled historical incidents, of distinct shape:
+Two labeled historical incidents, of distinct shape, both detected:
 
 | Incident                          | Shape                  | Detected? | Detector |
 | --------------------------------- | ---------------------- | :-------: | --------- |
 | 2008-02-24 YouTube / Pakistan     | sub-prefix hijack      |    ✅     | `subprefix_hijack` |
-| 2018-11-12 MainOne → Google leak  | RFC 7908 Type-1 leak   |    ✅¹    | `route_leak` |
+| 2018-11-12 MainOne → Google leak  | RFC 7908 Type-1 leak   |    ✅     | `route_leak` |
 
-¹ Caught by the route-leak detector in unit tests against the real
-recorded AS-path (`15562 2914 20485 4809 37282 15169` — pulled from
-RRC00, first sighting `21:12:16Z` matching BGPmon's onset to the
-second). Reproducing on the archive ingest needs a CAIDA AS-relationships
-load — open work in [BENCHMARK.md](BENCHMARK.md#open).
+The MainOne result uses **real CAIDA serial-2** AS relationships
+(`netpulse ingest asrel`, ~739k inferred relationships pulled in 7 s)
+applied to the actual recorded AS-path of the leak. First AS37282
+transit observation at RRC00 matches BGPmon's published onset
+(`21:12:16Z`) to the second.
 
 False-positive survey of the BGP hijack detector across **5 hours of
 real RRC00 data** (1 hijack hour + 4 background hours, 13,961 distinct
@@ -110,9 +110,18 @@ prefixes total) using a real RIB-derived baseline:
 | `moas`                | 10 alerts        |    ~40 alerts/hour |
 | `withdraw_spike`      | 0 alerts         |           0 alerts |
 
-Plus **RPKI Origin Validation** (RFC 6811) wired up live against
-Cloudflare's published rpki.json (859k VRPs), and **`netpulse stream`**
-running detectors against the RIPE RIS Live WebSocket in real time.
+Plus:
+- **RPKI Origin Validation** (RFC 6811) — `netpulse ingest rpki` pulls
+  Cloudflare's published rpki.json (**859k VRPs in ~20 s** via
+  DuckDB-native bulk load) and the validator gives the standard
+  Valid / Invalid / NotFound classification.
+- **`netpulse stream`** — runs detectors against the RIPE RIS Live
+  WebSocket in real time; alerts deduplicated by fingerprint within
+  a 5-minute cooldown.
+- **`netpulse serve`** — FastAPI HTTP, `POST /detect/bgp` returns
+  alerts as JSON.
+- **`netpulse benchmark replay`** — incidents declare their own
+  `bgp_store_path`, so one command scores the whole corpus.
 
 Reproduction commands and methodology: [BENCHMARK.md](BENCHMARK.md).
 
