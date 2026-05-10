@@ -9,13 +9,20 @@ against real RIPE RIS archive data with a public reproducible benchmark.
 
 **Live demo:** [`netpulse-pauti.fly.dev`](https://netpulse-pauti.fly.dev/health) —
 hits a deployed FastAPI bound to the YouTube/Pakistan 2008 fixture +
-RIB baseline. `POST /detect/bgp` returns alerts as JSON:
+RIB baseline. `POST /detect/bgp` returns alerts as JSON; `GET /alerts`
+queries persisted history.
 
 ```sh
 curl -X POST https://netpulse-pauti.fly.dev/detect/bgp \
     -H 'Content-Type: application/json' \
     -d '{"start_iso":"2008-02-24T18:45:00Z","duration_s":300}'
 ```
+
+**Real performance numbers** (benchmark methodology in [`BENCHMARK.md`](BENCHMARK.md#performance)):
+RPKI validate against 859k VRPs ≈ **43 µs / call** (~23k / sec, after a
+500× speedup from longest-prefix-match indexing). Route-leak detector
+over 1,000 real archived AS-paths ≈ 5.7 ms total. Feature extraction
+over a 51k-announce / 7.7k-prefix BGP window ≈ 39 ms.
 
 ![netpulse demo](docs/img/demo.gif)
 

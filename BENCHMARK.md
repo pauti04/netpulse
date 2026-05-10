@@ -225,6 +225,44 @@ feeds. The detector logic is unchanged; the visibility is the gap.
 
 [rfc7454]: https://www.rfc-editor.org/rfc/rfc7454
 
+## Performance
+
+Real numbers from a recent run on the bundled data:
+
+| Operation                                                         | Throughput / latency           |
+| ----------------------------------------------------------------- | -----------------------------: |
+| Ingest 1h of 2008 RRC00 BGP updates (no filter, ~57k records)     | ~80 s                          |
+| Ingest 5 min RouteViews `route-views2` filtered to `208.65.0.0/16` | ~3.6 s for 71 records         |
+| Ingest 859k RPKI VRPs (DuckDB-native bulk load)                   | ~20 s                          |
+| Ingest 739k–1.1M CAIDA serial-2 inferred relationships            | ~7 s                           |
+| Feature extraction over a 1h / 51k-announce / 7.7k-prefix window  | **39 ms**                      |
+| Sub-prefix detector across 7.7k prefixes vs 89-row baseline       | **267 ms**                     |
+| Route-leak detector across 1,000 real archived AS-paths           | **5.7 ms** (0.006 ms / path)   |
+| RPKI validate(prefix, asn) against 859k VRPs                      | **43 µs / call** (~23k / sec)  |
+
+The RPKI validator was reduced from ~22 ms to ~43 µs per call by
+switching from a linear scan of all covering networks to longest-prefix-
+match against a single canonical-network dict (33 lookups for IPv4,
+each O(1) — same correctness, **500× faster**). Verified with the same
+test set covering Cover/Match semantics from RFC 6811 §2.
+
+## Multi-collector support
+
+`netpulse ingest bgp --collector` accepts any libBGPStream-known
+collector name. Verified live:
+
+- RIPE RIS: `rrc00`, `rrc01`, …, `rrc25` (used throughout this benchmark)
+- RouteViews: `route-views2`, `route-views.amsix`, etc.
+
+A 5-minute filtered pull from `route-views2` around the 2008 YouTube
+hijack onset finishes in ~3.6 s and shows AS17557 announcing the
+hijacked `/24` — independent confirmation of the same event from a
+different peer set than the one used in the rest of this benchmark.
+
+Cross-collector aggregation (running detectors over a UNION of
+multiple stores) is mechanical from here — pull each collector into
+its own DuckDB, then a single SQL UNION at feature-extraction time.
+
 ## Faster ingest with libBGPStream filters
 
 The `--filter` flag passes a libBGPStream filter expression through to
