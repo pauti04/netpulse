@@ -35,6 +35,18 @@ uv run netpulse demo
 That replays a 5-minute RRC00 slice around the YouTube hijack onset
 against bundled real data and prints alerts. Under one second.
 
+For a live tap of the global routing table:
+
+```sh
+uv run netpulse stream
+```
+
+connects to the RIPE RIS Live WebSocket, maintains a 1-minute rolling
+window of updates from every collector, and runs detectors every 10s.
+On a healthy Internet you'll see ~50k updates/30s and alerts on real
+anycast / multi-homed prefixes (Google's AS15169/19527 footprint, etc.)
+— exactly the noise floor BENCHMARK.md describes.
+
 ## How it works
 
 ```mermaid

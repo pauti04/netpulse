@@ -347,6 +347,91 @@ def benchmark_replay(
     )
 
 
+@app.command("stream")
+def stream(
+    window: Annotated[
+        str, typer.Option("--window", help="Rolling window size kept in memory.")
+    ] = "1m",
+    interval: Annotated[
+        str, typer.Option("--interval", help="How often to evaluate detectors.")
+    ] = "10s",
+    host_filter: Annotated[
+        str | None,
+        typer.Option("--host", help="Filter to a single RIS collector (e.g. 'rrc03.ripe.net')."),
+    ] = None,
+    baseline_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--baseline",
+            help="Optional sub-prefix baseline DuckDB; enables the sub-prefix detector.",
+        ),
+    ] = None,
+) -> None:
+    """Stream BGP updates from RIS Live, run detectors on a rolling window."""
+    from collections import deque
+
+    from netpulse.alerts.publishers import StdoutPublisher
+    from netpulse.detectors.base import DetectorBase
+    from netpulse.detectors.baseline import BGPBaseline
+    from netpulse.detectors.moas import MOASDetector
+    from netpulse.detectors.subprefix import SubPrefixHijackDetector
+    from netpulse.features.bgp import BGPWindowFeatures
+    from netpulse.ingest.stream import StreamUpdate, stream_updates
+    from netpulse.storage.duckdb_store import BGPStore
+
+    window_us = _parse_duration_to_us(window)
+    interval_us = _parse_duration_to_us(interval)
+
+    detectors: list[DetectorBase[BGPWindowFeatures]] = [MOASDetector()]
+    if baseline_path is not None:
+        with BGPStore(baseline_path) as bs:
+            baseline = BGPBaseline.from_store(bs)
+        console.log(f"loaded baseline: {len(baseline.origins)} prefixes")
+        detectors.append(SubPrefixHijackDetector(baseline))
+
+    publisher = StdoutPublisher(console=console)
+    rolling: deque[StreamUpdate] = deque()
+    last_check_us = 0
+    total_received = 0
+
+    console.log(f"connecting to RIS Live (window={window}, interval={interval})...")
+    try:
+        for upd in stream_updates(host_filter=host_filter):
+            rolling.append(upd)
+            total_received += 1
+            cutoff = upd.timestamp_us - window_us
+            while rolling and rolling[0].timestamp_us < cutoff:
+                rolling.popleft()
+
+            if upd.timestamp_us - last_check_us < interval_us:
+                continue
+            last_check_us = upd.timestamp_us
+
+            feats = BGPWindowFeatures(window_start_us=cutoff, window_end_us=upd.timestamp_us)
+            for r in rolling:
+                if r.update_type == "A":
+                    feats.announce_count_by_prefix[r.prefix] = (
+                        feats.announce_count_by_prefix.get(r.prefix, 0) + 1
+                    )
+                    if r.origin_as is not None:
+                        feats.origins_by_prefix.setdefault(r.prefix, set()).add(r.origin_as)
+                else:
+                    feats.withdraw_count_by_prefix[r.prefix] = (
+                        feats.withdraw_count_by_prefix.get(r.prefix, 0) + 1
+                    )
+
+            n_alerts = 0
+            for det in detectors:
+                n_alerts += publisher.publish_all(det.score(feats))
+
+            console.log(
+                f"received={total_received} window_updates={len(rolling)} "
+                f"prefixes={len(feats.origins_by_prefix)} alerts={n_alerts}"
+            )
+    except KeyboardInterrupt:
+        console.log("stopped by user")
+
+
 @app.command("demo")
 def demo() -> None:
     """Run the YouTube/Pakistan 2008 hijack against a bundled fixture (~1s, no setup)."""
