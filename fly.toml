@@ -12,7 +12,7 @@
 # --app=<your-name> to flyctl deploy to use something else, or rename
 # the app key here.
 
-app = "netpulse"
+app = "netpulse-pauti"
 primary_region = "iad"
 
 [build]
