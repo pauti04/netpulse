@@ -1,16 +1,16 @@
 # Why the textbook BGP hijack detector misses the textbook BGP hijack
 
-*Draft. The post is the long-form version of [`docs/why-subprefix.md`](../why-subprefix.md);
-once polished it should land on a personal blog and possibly r/networking
-or HN. Numbers are ground-truth from the live run on 2026-05-09.*
+*Numbers are ground-truth from a live run against the RIPE RIS archive
+on 2026-05-09. Project: <https://github.com/pauti04/netpulse>.*
 
 ---
 
-A weekend ago I started building [NetPulse][netpulse], a small open-source
-BGP anomaly detector. The first detector I implemented is the one every
-"BGP hijack detection 101" piece walks you through: **MOAS** — Multiple
-Origin AS. For each prefix you see in a window, count distinct origin
-ASes; more than one means something's off.
+I built [NetPulse][netpulse], a small open-source BGP anomaly detector,
+to teach myself routing in the way I learn things best — by trying to
+build something that does it. The first detector I implemented is the
+one every "BGP hijack detection 101" piece walks you through: **MOAS**
+— Multiple Origin AS. For each prefix you see in a window, count
+distinct origin ASes; more than one means something's off.
 
 I tested it. Worked great on synthetic data. Then I ran it against the
 canonical example — the 2008 YouTube/Pakistan hijack, the textbook of
@@ -156,9 +156,23 @@ but both are observable on real data, with reproducible commands.
 4. **"Honest evaluation" needs background hours.** A single TPR is
    suggestive; a TPR plus an FPR over multiple hours is testimony.
 
+## What's next, briefly
+
+NetPulse extends past this discovery. The same project also implements
+RFC 7908 valley-free route-leak detection (against CAIDA's serial-2
+inferred AS relationships), RFC 6811 RPKI Origin Validation, and a
+small **multi-signal correlator** that binds BGP alerts to RIPE Atlas
+latency anomalies. On the **2018-11-12 MainOne → Google route leak**
+the BGP route-leak detector emits 1,985 leak-shape alerts on the real
+archive paths *and* Atlas median RTT to `8.8.8.8` jumps from 38.0 ms
+baseline to 49.9 ms during the leak window — exactly the period when
+Google traffic was getting rerouted through Nigeria, China, and Russia.
+Those two signals fuse into a single critical alert, and the
+reproduction is a 100-line script in the repo.
+
 If you want to play with this, the project is at
 <https://github.com/pauti04/netpulse>; `uv run netpulse demo` runs the
-above against a bundled fixture in under a second, no setup.
+YouTube case against a bundled fixture in under a second, no setup.
 
 [netpulse]: https://github.com/pauti04/netpulse
 [ripe-yt]: https://www.ripe.net/publications/news/youtube-hijacking-a-ripe-ncc-ris-case-study/
