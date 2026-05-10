@@ -72,6 +72,23 @@ def test_picks_most_specific_supernet() -> None:
     assert alerts[0].evidence["legitimate_origins"] == [64600]
 
 
+def test_flags_exact_prefix_with_unauthorized_origin() -> None:
+    # China-Telecom-2010-shaped: AS23724 announced AT&T's exact /23, no sub-
+    # prefix involved. Baseline says AS7018 owns 12.5.58.0/23; observed AS23724
+    # must fire alert.
+    baseline = BGPBaseline.build({"12.5.58.0/23": {7018}})
+    feats = _features({"12.5.58.0/23": {23724}})
+
+    alerts = SubPrefixHijackDetector(baseline).score(feats)
+
+    assert len(alerts) == 1
+    a = alerts[0]
+    assert a.entity == "12.5.58.0/23"
+    assert a.evidence["shape"] == "exact_prefix"
+    assert a.evidence["legitimate_origins"] == [7018]
+    assert a.evidence["unauthorized_origins"] == [23724]
+
+
 def test_baseline_loads_from_duckdb_store(tmp_path: Path) -> None:
     with BGPStore(tmp_path / "rib.duckdb") as store:
         store.write_batch(
