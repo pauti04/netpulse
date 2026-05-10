@@ -24,7 +24,13 @@ RPKI validate against 859k VRPs ≈ **43 µs / call** (~23k / sec, after a
 over 1,000 real archived AS-paths ≈ 5.7 ms total. Feature extraction
 over a 51k-announce / 7.7k-prefix BGP window ≈ 39 ms.
 
+### Bundled-data demo (no setup, ~1 second)
+
 ![netpulse demo](docs/img/demo.gif)
+
+### Live BGP feed against the RIPE RIS Live WebSocket
+
+![netpulse stream](docs/img/stream.gif)
 
 ## Headline result: multi-signal fusion on a real incident
 
