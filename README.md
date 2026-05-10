@@ -7,6 +7,16 @@
 Open-source detector for Internet outages and BGP anomalies, evaluated
 against real RIPE RIS archive data with a public reproducible benchmark.
 
+**Live demo:** [`netpulse-pauti.fly.dev`](https://netpulse-pauti.fly.dev/health) —
+hits a deployed FastAPI bound to the YouTube/Pakistan 2008 fixture +
+RIB baseline. `POST /detect/bgp` returns alerts as JSON:
+
+```sh
+curl -X POST https://netpulse-pauti.fly.dev/detect/bgp \
+    -H 'Content-Type: application/json' \
+    -d '{"start_iso":"2008-02-24T18:45:00Z","duration_s":300}'
+```
+
 ![netpulse demo](docs/img/demo.gif)
 
 ## Headline result: multi-signal fusion on a real incident
