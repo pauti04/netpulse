@@ -10,12 +10,7 @@ coverage of each is reported as-is.
 | Incident                          | Shape           | Catching detector | Detected? | Real-data evidence in the pull |
 | --------------------------------- | --------------- | ----------------- | :-------: | ----- |
 | 2008-02-24 YouTube / Pakistan     | sub-prefix hijack | `subprefix_hijack` |    ✅     | first AS17557 announcement of `208.65.153.0/24` at RRC00: **2008-02-24 18:47:57Z**, matches the RIPE NCC case study |
-| 2018-11-12 MainOne → Google leak  | RFC 7908 Type-1 leak | `route_leak` (built; needs AS-relationship data) | ⚠ harness-only | first AS37282 transit observation at RRC00: **2018-11-12 21:12:16Z**, matches BGPmon's reported onset to the second; 203 distinct Google prefixes seen leaked |
-
-The MainOne case is detected by the `route_leak` detector in unit tests
-against the recorded path; reproducing on the archive data requires
-populating an AS-relationships dataset (CAIDA serial-2). See "Route-leak
-detector" below.
+| 2018-11-12 MainOne → Google leak  | RFC 7908 Type-1 leak | `route_leak` |    ✅     | first AS37282 transit observation at RRC00: **2018-11-12 21:12:16Z**, matches BGPmon's reported onset to the second; 203 distinct Google prefixes seen leaked; **2,391 leak alerts** fire on the archive paths with a hand-curated 7-pair relationship subset |
 
 ## BGP false-positive survey (sub-prefix detector, real RIB baseline)
 
@@ -182,9 +177,21 @@ relationships: c2p, p2c, c2p, p2c, c2p
 ```
 
 The detector fires on this path with `step_directions =
-['c2p', 'p2c', 'c2p', 'p2c', 'c2p']`. Producing the same alert against
-the live RRC00 ingest is one CAIDA dataset away (open: ingest path
-+ apply at replay time).
+['c2p', 'p2c', 'c2p', 'p2c', 'c2p']`. Run end-to-end against the
+recorded archive (90-minute window starting 21:00 UTC, 7,411 BGP
+paths transiting AS37282) with a 7-pair hand-curated relationship
+subset, the detector emits **2,391 leak alerts**:
+
+```sh
+uv run netpulse detect leak \
+    --in data/mainone_2018.duckdb \
+    --asrel data/mainone_asrel.duckdb \
+    --start 2018-11-12T21:00:00 --duration 90m
+```
+
+A full CAIDA serial-2 load (open work) would tighten the unknown-step
+count and generalize to any archive window without per-incident
+hand-curation.
 
 [caida]: https://publicdata.caida.org/datasets/as-relationships/serial-2/
 

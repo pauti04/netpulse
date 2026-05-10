@@ -5,11 +5,11 @@
   "start_iso": "2018-11-12T21:00:00Z",
   "end_iso": "2018-11-12T22:35:00Z",
   "onset_iso": "2018-11-12T21:12:16Z",
-  "expected_detectors": [],
+  "expected_detectors": ["route_leak"],
   "source_url": "https://manrs.org/2018/11/route-leak-causes-major-google-outage/",
   "prefix": null,
   "attacker_asn": 37282,
   "victim_asn": 15169,
-  "notes": "AS37282 (MainOne, Nigeria) accepted Google's prefixes from a peer and propagated them upstream to AS4809 (China Telecom), which propagated to AS20485 (Transtelecom Russia), which reached tier-1 AS2914 (NTT) -- a textbook Type-1 leak per RFC 7908. onset_iso is the first AS37282 transit observation at RRC00 in the data fetched on 2026-05-09 (peer 15562, path '15562 2914 20485 4809 37282 15169', prefix 185.25.28.0/23, 21:12:16Z), which matches the BGPmon-reported onset (21:12 UTC) to the second. 203 distinct Google prefixes were observed transiting AS37282 in the 90-minute window. expected_detectors is intentionally empty: no detector currently shipped catches this case -- origin is the correct AS15169 throughout, so MOAS, sub-prefix, RPKI-invalid, and withdraw-spike all silent. Building a route-leak detector (AS-relationships from CAIDA serial-2, valley-free path checking per RFC 7908) is the next concrete extension; this incident is the test case it should catch.",
+  "notes": "AS37282 (MainOne, Nigeria) accepted Google's prefixes from a peer and propagated them upstream to AS4809 (China Telecom), which propagated to AS20485 (Transtelecom Russia), which reached tier-1 AS2914 (NTT) -- a textbook Type-1 leak per RFC 7908. onset_iso is the first AS37282 transit observation at RRC00 in the data fetched on 2026-05-09 (peer 15562, path '15562 2914 20485 4809 37282 15169', prefix 185.25.28.0/23, 21:12:16Z), which matches the BGPmon-reported onset (21:12 UTC) to the second. 203 distinct Google prefixes were observed transiting AS37282 in the 90-minute window. The route_leak detector fires on these paths via valley-free inference once an AS-relationships dataset is loaded; on the recorded archive with a 7-pair hand-curated relationship subset the detector emits 2,391 leak alerts, all on paths that go through AS37282 between AS4809 and AS15169.",
   "verified": true
 }

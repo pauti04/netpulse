@@ -153,6 +153,88 @@ def ingest_rpki(
     console.log(f"Wrote {n} RPKI VRPs.")
 
 
+@detect_app.command("leak")
+def detect_leak(
+    in_path: Annotated[
+        Path,
+        typer.Option("--in", help="Path to the BGP DuckDB store."),
+    ],
+    asrel_path: Annotated[
+        Path,
+        typer.Option(
+            "--asrel",
+            help="Path to an AS-relationships DuckDB store (e.g. CAIDA serial-2).",
+        ),
+    ],
+    start: Annotated[
+        str,
+        typer.Option("--start", help="ISO-8601 window start, UTC if no offset."),
+    ],
+    duration: Annotated[
+        str,
+        typer.Option("--duration", help="Window length: '5m', '1h', etc."),
+    ] = "5m",
+) -> None:
+    """Run the route-leak (valley-free) detector over stored BGP records."""
+    from netpulse.alerts.publishers import StdoutPublisher
+    from netpulse.detectors.route_leak import (
+        ASRelationshipMap,
+        ObservedPath,
+        RouteLeakDetector,
+        parse_as_path,
+    )
+    from netpulse.storage.asrel_store import ASRelStore
+    from netpulse.storage.duckdb_store import BGPStore
+
+    start_us = _parse_iso_to_us(start)
+    end_us = start_us + _parse_duration_to_us(duration)
+
+    asrel_store = ASRelStore(asrel_path)
+    try:
+        rels = ASRelationshipMap.from_store(asrel_store)
+    finally:
+        asrel_store.close()
+    console.log(f"loaded AS-relationships: {len(rels.pairs)} ordered pairs")
+
+    store = BGPStore(in_path)
+    try:
+        rows = store.query(
+            """
+            SELECT timestamp_us, prefix, peer_as, as_path
+            FROM bgp_records
+            WHERE update_type = 'A' AND as_path IS NOT NULL
+              AND timestamp_us >= ? AND timestamp_us < ?
+            """,
+            [start_us, end_us],
+        )
+    finally:
+        store.close()
+
+    paths = []
+    skipped_unparseable = 0
+    for ts, pfx, peer, asp in rows:
+        asns = parse_as_path(str(asp))
+        if asns is None:
+            skipped_unparseable += 1
+            continue
+        paths.append(
+            ObservedPath(
+                prefix=str(pfx),
+                asns=asns,
+                peer_as=int(peer),
+                timestamp_us=int(ts),
+            )
+        )
+
+    publisher = StdoutPublisher(console=console)
+    alerts = RouteLeakDetector(rels=rels).score_paths(paths)
+    n = publisher.publish_all(alerts)
+    console.log(
+        f"window={start_us}-{end_us} paths={len(paths)} "
+        f"unparseable={skipped_unparseable} leak_alerts={n}"
+    )
+
+
 @detect_app.command("rpki")
 def detect_rpki(
     in_path: Annotated[
