@@ -56,7 +56,7 @@ in the more-specific.
 
 ## The data tells you
 
-When I pulled one hour of RRC00 updates for 2024-06-27 18:00–19:00 UTC
+When I pulled one hour of RRC00 updates for 2008-02-24 18:00–19:00 UTC
 and grouped by `prefix`, the only entry for `208.65.153.0/24` looked
 like this:
 
