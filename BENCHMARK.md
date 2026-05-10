@@ -79,8 +79,11 @@ for s in 2008-02-23T00:00:00 2008-02-24T06:00:00 \
         --duration 1h --out data/fpr/fpr_${s//[:-]/_}.duckdb
 done
 
-# 3. Seed the focused baseline
-uv run python scripts/seed_youtube_baseline.py data/youtube_2008_baseline.duckdb
+# 3. Real RIB-derived baseline (89 supernets in 208.65.0.0/16, ~47s with the
+#    libBGPStream filter; the result is committed at data/baselines/...)
+uv run netpulse ingest bgp --collector rrc00 --start 2008-02-24T16:00:00 \
+    --duration 15m --record-type ribs --filter "prefix any 208.65.0.0/16" \
+    --out data/baselines/yt_rib_filtered.duckdb
 
 # 4. Per-hour detector breakdown (the table above)
 uv run python scripts/run_fpr_analysis.py
@@ -89,7 +92,7 @@ uv run python scripts/run_fpr_analysis.py
 uv run netpulse benchmark replay \
     --incidents data/incidents \
     --store data/youtube_2008.duckdb \
-    --baseline data/youtube_2008_baseline.duckdb \
+    --baseline data/baselines/yt_rib_filtered.duckdb \
     --chunk 1m
 ```
 
@@ -122,11 +125,13 @@ and detector evaluation is well under one millisecond.
 - **One labeled incident.** The fixture set in `data/incidents/` has
   `youtube_pakistan_2008.json` only. Schema and primary-source citation
   rules: `data/incidents/_README.md`. Adding more is research, not code.
-- **Focused, not RIB-derived, baseline.** `scripts/seed_youtube_baseline.py`
-  writes a single (prefix, ASN) row sourced from the cited RIPE writeup
-  rather than ingesting a full `record_type=ribs` snapshot from RRC00 at
-  16:00 UTC; the ingest path is the same one that takes minutes per RIB
-  and is why we use a focused baseline here.
+- **Bounded baseline scope.** `data/baselines/yt_rib_filtered.duckdb` is
+  the **real RIB at 2008-02-24T16:00:00Z**, but only for prefixes inside
+  `208.65.0.0/16` (89 supernets). A production deployment would use the
+  full RIB (~270k prefixes at 2008 volumes). The native libBGPStream
+  filter makes that feasible — we choose the scoped pull here because
+  the question being asked is bounded: "did the YouTube prefix's
+  legitimate origin get unauthorized more-specifics?"
 - **No fusion yet.** The Atlas signal works in isolation
   (`src/netpulse/detectors/atlas_loss.py`, verified live against
   measurement 1001) but is not yet correlated with BGP detections in a

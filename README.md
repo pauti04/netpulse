@@ -47,6 +47,18 @@ On a healthy Internet you'll see ~50k updates/30s and alerts on real
 anycast / multi-homed prefixes (Google's AS15169/19527 footprint, etc.)
 — exactly the noise floor BENCHMARK.md describes.
 
+To run the detectors as a JSON HTTP API instead:
+
+```sh
+uv run netpulse serve --store data/youtube_2008.duckdb \
+                     --baseline data/baselines/yt_rib_filtered.duckdb
+curl -s -X POST http://127.0.0.1:8000/detect/bgp \
+    -H 'Content-Type: application/json' \
+    -d '{"start_iso":"2008-02-24T18:00:00Z","duration_s":3600}'
+```
+
+Returns the same alerts the CLI prints, as JSON.
+
 ## How it works
 
 ```mermaid
@@ -56,11 +68,13 @@ flowchart LR
   Store --> Features[features<br/>per-window aggregation]
   Features --> M[MOAS detector]
   Features --> S[Sub-prefix<br/>hijack detector]
+  Features --> W[Withdraw-spike<br/>outage detector]
   Features --> A[Atlas loss<br/>spike detector]
   M --> Alerts[Alerts]
   S --> Alerts
+  W --> Alerts
   A --> Alerts
-  Alerts --> Out[stdout / webhook / API]
+  Alerts --> Out[stdout / FastAPI / RIS Live stream]
 ```
 
 Each stage is a thin module that talks to the next through DuckDB rather
@@ -73,11 +87,13 @@ which is what makes the historical benchmark reproducible.
 | --------------------- | ---------------: | -----------------------------------: |
 | `subprefix_hijack`    | 1 alert (TP)     |                              0 alerts |
 | `moas`                | 10 alerts        |                  ~40 alerts/hour mean |
+| `withdraw_spike`      | 0 alerts         |                              0 alerts |
 | `atlas_loss_spike`    | n/a (Atlas <2010) |                            0 alerts (live) |
 
-Reported on real RRC00 archive data (1h × 5 hours) and a 5-minute live
-pull from Atlas measurement 1001. Per-hour breakdown and reproduction
-commands: [BENCHMARK.md](BENCHMARK.md).
+Real RRC00 archive data, **real RIB-derived baseline** (89 supernets
+inside `208.65.0.0/16` from RRC00's 16:00 UTC table dump on 2008-02-24,
+not a hand-curated row). Per-hour breakdown and reproduction commands:
+[BENCHMARK.md](BENCHMARK.md).
 
 ## Reading list
 

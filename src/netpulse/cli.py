@@ -261,8 +261,11 @@ def detect_bgp(
     finally:
         store.close()
 
+    from netpulse.detectors.withdraw_spike import WithdrawSpikeDetector
+
     detectors: list[DetectorBase[BGPWindowFeatures]] = [
-        MOASDetector(min_announce_count=min_announce_count)
+        MOASDetector(min_announce_count=min_announce_count),
+        WithdrawSpikeDetector(),
     ]
     if baseline_path is not None:
         baseline_store = BGPStore(baseline_path)
@@ -504,10 +507,31 @@ def demo() -> None:
 
 
 @app.command("serve")
-def serve() -> None:
-    """Serve the alerts API and dashboard (not implemented yet)."""
-    console.print("[yellow]serve: not implemented yet[/]")
-    raise typer.Exit(code=1)
+def serve(
+    store_path: Annotated[
+        Path,
+        typer.Option("--store", help="BGP DuckDB store the API will query."),
+    ],
+    baseline_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--baseline",
+            help="Optional baseline DuckDB; enables sub-prefix detection.",
+        ),
+    ] = None,
+    host: Annotated[str, typer.Option("--host", help="Bind address.")] = "127.0.0.1",
+    port: Annotated[int, typer.Option("--port", help="TCP port.")] = 8000,
+) -> None:
+    """Serve BGP detectors as a FastAPI app (POST /detect/bgp, GET /health)."""
+    import uvicorn
+
+    from netpulse.api.app import build_app
+
+    api = build_app(store_path=store_path, baseline_path=baseline_path)
+    console.log(
+        f"serving NetPulse on http://{host}:{port} (store={store_path}, baseline={baseline_path})"
+    )
+    uvicorn.run(api, host=host, port=port)
 
 
 if __name__ == "__main__":

@@ -50,6 +50,10 @@ data/*.duckdb.wal
 !data/fixtures/
 !data/fixtures/*.duckdb
 
+# Allow committed baselines (filtered RIB pulls, < 1 MB each).
+!data/baselines/
+!data/baselines/*.duckdb
+
 # Secrets
 .env
 .env.local

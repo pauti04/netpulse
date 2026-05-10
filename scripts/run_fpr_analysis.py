@@ -25,6 +25,7 @@ from netpulse.storage.duckdb_store import BGPStore
 REPO_ROOT = Path(__file__).resolve().parent.parent
 FPR_DIR = REPO_ROOT / "data" / "fpr"
 YOUTUBE_DUCKDB = REPO_ROOT / "data" / "youtube_2008.duckdb"
+RIB_BASELINE_DUCKDB = REPO_ROOT / "data" / "baselines" / "yt_rib_filtered.duckdb"
 
 # (label, path, window_start_us, window_end_us)
 WINDOWS: list[tuple[str, Path, int, int]] = [
@@ -74,7 +75,13 @@ def analyze_hour(label: str, path: Path, start_us: int, end_us: int,
 
 
 def main() -> None:
-    baseline = BGPBaseline.build({"208.65.152.0/22": {36561}})
+    if RIB_BASELINE_DUCKDB.exists():
+        with BGPStore(RIB_BASELINE_DUCKDB) as bs:
+            baseline = BGPBaseline.from_store(bs)
+        print(f"# baseline: real RIB pull, {len(baseline.origins)} prefixes")
+    else:
+        baseline = BGPBaseline.build({"208.65.152.0/22": {36561}})
+        print("# baseline: 1-row hand-curated (RIB pull missing; run scripts/extract_demo_fixture.py)")
 
     print(f"{'window':<40} {'ann':>8} {'wd':>6} {'pfxs':>7} {'moas':>5} {'sub':>4}")
     print("-" * 75)
