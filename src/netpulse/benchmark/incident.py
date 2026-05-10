@@ -26,6 +26,7 @@ class Incident:
     victim_asn: int | None = None
     onset_us: int | None = None  # actual event onset, if known
     bgp_store_path: str | None = None  # optional per-incident BGP DuckDB
+    baseline_path: str | None = None  # optional per-incident RIB baseline
     notes: str = ""
     verified: bool = False
     extra: dict[str, object] = field(default_factory=dict)

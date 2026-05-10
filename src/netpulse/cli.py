@@ -531,15 +531,17 @@ def benchmark_replay(
         console.log(f"No incidents found in {incidents_dir}.")
         raise typer.Exit(code=1)
 
-    detectors: list[DetectorBase[BGPWindowFeatures]] = [MOASDetector()]
+    fallback_baseline: BGPBaseline | None = None
     if baseline_path is not None:
-        baseline_store = BGPStore(baseline_path)
+        bs = BGPStore(baseline_path)
         try:
-            baseline = BGPBaseline.from_store(baseline_store)
+            fallback_baseline = BGPBaseline.from_store(bs)
         finally:
-            baseline_store.close()
-        console.log(f"loaded baseline: {len(baseline.origins)} prefixes")
-        detectors.append(SubPrefixHijackDetector(baseline))
+            bs.close()
+        console.log(
+            f"fallback baseline: {len(fallback_baseline.origins)} prefixes"
+            f" from {baseline_path.name}"
+        )
 
     results = []
     incidents_dir_abs = incidents_dir.resolve()
@@ -556,6 +558,21 @@ def benchmark_replay(
         if not store_for_inc.exists():
             console.log(f"{inc.id}: store {store_for_inc} not found, skipping")
             continue
+
+        # Per-incident baseline takes precedence; fall back to --baseline.
+        baseline_for_inc: BGPBaseline | None = fallback_baseline
+        if inc.baseline_path is not None:
+            baseline_p = (incidents_dir_abs / inc.baseline_path).resolve()
+            if baseline_p.exists():
+                bs = BGPStore(baseline_p)
+                try:
+                    baseline_for_inc = BGPBaseline.from_store(bs)
+                finally:
+                    bs.close()
+
+        detectors: list[DetectorBase[BGPWindowFeatures]] = [MOASDetector()]
+        if baseline_for_inc is not None:
+            detectors.append(SubPrefixHijackDetector(baseline_for_inc))
 
         store = BGPStore(store_for_inc)
         try:

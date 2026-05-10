@@ -87,18 +87,16 @@ which is what makes the historical benchmark reproducible.
 
 ## Headline numbers
 
-Two labeled historical incidents, of distinct shape, both detected:
+Three labeled historical incidents, of distinct shape, all detected
+on real RIPE RIS archive data with their respective detectors:
 
 | Incident                          | Shape                  | Detected? | Detector |
 | --------------------------------- | ---------------------- | :-------: | --------- |
 | 2008-02-24 YouTube / Pakistan     | sub-prefix hijack      |    ✅     | `subprefix_hijack` |
+| 2018-04-24 MyEtherWallet          | sub-prefix hijack      |    ✅     | `subprefix_hijack` |
 | 2018-11-12 MainOne → Google leak  | RFC 7908 Type-1 leak   |    ✅     | `route_leak` |
 
-The MainOne result uses **real CAIDA serial-2** AS relationships
-(`netpulse ingest asrel`, ~739k inferred relationships pulled in 7 s)
-applied to the actual recorded AS-path of the leak. First AS37282
-transit observation at RRC00 matches BGPmon's published onset
-(`21:12:16Z`) to the second.
+MyEtherWallet: all five hijacked /24s flagged correctly (`205.251.192/193/195/197/199.0/24` from AS10297 vs Amazon AS16509's /23 supernets). Onset at RRC00: 2018-04-24 11:05:50 UTC. MainOne: 1,985 leak alerts on the actual AS37282→AS15169 path shape using time-aligned CAIDA serial-2 (20181101) data.
 
 False-positive survey of the BGP hijack detector across **5 hours of
 real RRC00 data** (1 hijack hour + 4 background hours, 13,961 distinct

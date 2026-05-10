@@ -23,7 +23,11 @@ class BGPBaseline:
     def from_store(cls, store: BGPStore) -> BGPBaseline:
         rows = store.query(
             "SELECT prefix, origin_as FROM bgp_records "
-            "WHERE update_type = 'A' AND origin_as IS NOT NULL"
+            "WHERE update_type = 'A' AND origin_as IS NOT NULL "
+            # Default routes appear in some RIB dumps but are useless as
+            # supernets -- they "cover" every prefix and produce nonsense
+            # sub-prefix-hijack alerts on legitimate announcements.
+            "  AND prefix NOT IN ('0.0.0.0/0', '::/0')"
         )
         origins: dict[str, set[int]] = {}
         for prefix, origin_as in rows:

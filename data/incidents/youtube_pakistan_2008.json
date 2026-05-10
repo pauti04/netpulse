@@ -7,6 +7,7 @@
   "onset_iso": "2008-02-24T18:47:57Z",
   "expected_detectors": ["subprefix_hijack"],
   "bgp_store_path": "../youtube_2008.duckdb",
+  "baseline_path": "../baselines/yt_rib_filtered.duckdb",
   "source_url": "https://www.ripe.net/publications/news/youtube-hijacking-a-ripe-ncc-ris-case-study/",
   "prefix": "208.65.153.0/24",
   "attacker_asn": 17557,

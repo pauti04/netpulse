@@ -1,0 +1,17 @@
+{
+  "id": "myetherwallet_2018",
+  "name": "Amazon Route 53 / MyEtherWallet hijack",
+  "kind": "hijack",
+  "start_iso": "2018-04-24T11:00:00Z",
+  "end_iso": "2018-04-24T13:00:00Z",
+  "onset_iso": "2018-04-24T11:05:50Z",
+  "expected_detectors": ["subprefix_hijack"],
+  "bgp_store_path": "../myetherwallet_2018.duckdb",
+  "baseline_path": "../baselines/myetherwallet_2018_rib.duckdb",
+  "source_url": "https://blog.cloudflare.com/bgp-leaks-and-crypto-currencies/",
+  "prefix": "205.251.193.0/24",
+  "attacker_asn": 10297,
+  "victim_asn": 16509,
+  "notes": "AS10297 (eNet) announced /24 more-specifics of Amazon's Route 53 prefixes (covered by AS16509's /23s 205.251.192-198). The hijack redirected DNS resolutions for myetherwallet.com and other Route 53-served domains to attacker-controlled servers, ultimately stealing ~$152k in cryptocurrency. onset_iso is the first AS10297 announcement at RRC00 in the data fetched on 2026-05-10 (peer 6881, path '6881 15685 6939 10297', prefix 205.251.192.0/24, 11:05:50Z). Five distinct /24s observed announced by AS10297 during the captured 30-minute window: 205.251.192.0/24, 193.0/24, 195.0/24, 197.0/24, 199.0/24 -- matches Cloudflare's reported set. The incident continued for ~2 hours total; this fixture covers the onset.",
+  "verified": true
+}
