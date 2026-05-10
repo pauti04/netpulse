@@ -6,11 +6,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from netpulse import __version__
 from netpulse.alerts import Alert
+from netpulse.alerts.store import AlertHistoryStore
 from netpulse.detectors.base import DetectorBase
 from netpulse.detectors.baseline import BGPBaseline
 from netpulse.detectors.moas import MOASDetector
@@ -70,7 +71,11 @@ def _parse_iso_to_us(value: str) -> int:
     return int(dt.timestamp() * 1_000_000)
 
 
-def build_app(store_path: Path, baseline_path: Path | None = None) -> FastAPI:
+def build_app(
+    store_path: Path,
+    baseline_path: Path | None = None,
+    history_path: Path | None = None,
+) -> FastAPI:
     """Construct the FastAPI app bound to a fixed BGP store (and optional baseline)."""
     if not store_path.exists():
         raise FileNotFoundError(f"store {store_path} does not exist")
@@ -99,6 +104,7 @@ def build_app(store_path: Path, baseline_path: Path | None = None) -> FastAPI:
             "version": __version__,
             "store": str(store_path),
             "baseline_prefixes": len(baseline.origins) if baseline is not None else 0,
+            "history": str(history_path) if history_path is not None else "",
         }
 
     @api.post("/detect/bgp", response_model=DetectResponse)
@@ -122,10 +128,14 @@ def build_app(store_path: Path, baseline_path: Path | None = None) -> FastAPI:
         if baseline is not None:
             detectors.append(SubPrefixHijackDetector(baseline))
 
-        alerts: list[AlertOut] = []
+        raw_alerts: list[Alert] = []
         for det in detectors:
-            for a in det.score(features):
-                alerts.append(_alert_to_out(a))
+            raw_alerts.extend(det.score(features))
+
+        # Persist into the history store if one was configured at startup.
+        if history_path is not None and raw_alerts:
+            with AlertHistoryStore(history_path) as hist:
+                hist.write_batch(raw_alerts)
 
         return DetectResponse(
             window_start_us=start_us,
@@ -133,7 +143,35 @@ def build_app(store_path: Path, baseline_path: Path | None = None) -> FastAPI:
             announce_total=features.announce_total,
             withdraw_total=features.withdraw_total,
             distinct_prefixes=len(features.origins_by_prefix),
-            alerts=alerts,
+            alerts=[_alert_to_out(a) for a in raw_alerts],
         )
+
+    @api.get("/alerts", response_model=list[AlertOut])
+    def list_alerts(
+        since_iso: str = Query(..., description="ISO-8601 lower bound, inclusive."),
+        until_iso: str = Query(..., description="ISO-8601 upper bound, exclusive."),
+        detector: str | None = Query(None),
+        severity: str | None = Query(None),
+        limit: int = Query(1000, ge=1, le=10_000),
+    ) -> list[AlertOut]:
+        if history_path is None:
+            raise HTTPException(
+                status_code=404,
+                detail="No alert history is configured for this server.",
+            )
+        try:
+            since_us = _parse_iso_to_us(since_iso)
+            until_us = _parse_iso_to_us(until_iso)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e)) from e
+        with AlertHistoryStore(history_path) as hist:
+            alerts = hist.query_window(
+                since_us=since_us,
+                until_us=until_us,
+                detector=detector,
+                severity=severity,
+                limit=limit,
+            )
+        return [_alert_to_out(a) for a in alerts]
 
     return api

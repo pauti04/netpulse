@@ -21,6 +21,7 @@ uv.lock.bak
 .pytest_cache/
 .coverage
 .coverage.*
+coverage.xml
 htmlcov/
 .tox/
 

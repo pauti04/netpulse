@@ -10,6 +10,7 @@ from typing import Protocol
 from rich.console import Console
 
 from netpulse.alerts import Alert
+from netpulse.alerts.store import AlertHistoryStore
 
 
 class Publisher(Protocol):
@@ -79,3 +80,26 @@ class WebhookPublisher:
             self.publish(a)
             count += 1
         return count
+
+
+class HistoryRecorder:
+    """Persists every published alert to an AlertHistoryStore.
+
+    Wraps another publisher so the recorder can sit alongside stdout or
+    webhook delivery -- the original publisher still runs, the recorder
+    just additionally writes the alert to the store.
+    """
+
+    def __init__(self, store: AlertHistoryStore, downstream: Publisher) -> None:
+        self.store = store
+        self.downstream = downstream
+
+    def publish(self, alert: Alert) -> None:
+        self.store.write(alert)
+        self.downstream.publish(alert)
+
+    def publish_all(self, alerts: Iterable[Alert]) -> int:
+        # Materialize so the deduper / generator is consumed once.
+        materialized = list(alerts)
+        self.store.write_batch(materialized)
+        return self.downstream.publish_all(materialized)

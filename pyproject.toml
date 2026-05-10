@@ -53,6 +53,7 @@ dev = [
     "mypy>=1.10",
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
+    "pytest-cov>=5.0",
     "httpx>=0.28",  # required by fastapi.testclient
 ]
 
@@ -91,3 +92,19 @@ markers = [
     "integration: requires network and external services (deselected by default)",
 ]
 asyncio_mode = "auto"
+
+[tool.coverage.run]
+source = ["src/netpulse"]
+branch = true
+omit = [
+    "src/netpulse/cli.py",  # exercised end-to-end, not unit-tested
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+exclude_also = [
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+    "@(abc\\.)?abstractmethod",
+]

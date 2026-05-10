@@ -11,6 +11,9 @@ lint:
 test:
 	uv run pytest -q
 
+coverage:
+	uv run pytest --cov --cov-report=term-missing --cov-report=xml -q
+
 ci: lint test
 
 demo:

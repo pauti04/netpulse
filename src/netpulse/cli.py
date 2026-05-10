@@ -618,6 +618,13 @@ def stream(
             help="Optional sub-prefix baseline DuckDB; enables the sub-prefix detector.",
         ),
     ] = None,
+    history_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--history",
+            help="Optional alert-history DuckDB; persists every emitted alert for later query.",
+        ),
+    ] = None,
 ) -> None:
     """Stream BGP updates from RIS Live, run detectors on a rolling window."""
     from collections import deque
@@ -642,8 +649,15 @@ def stream(
         detectors.append(SubPrefixHijackDetector(baseline))
 
     from netpulse.alerts.dedup import AlertDeduper
+    from netpulse.alerts.publishers import HistoryRecorder, Publisher
+    from netpulse.alerts.store import AlertHistoryStore
 
-    publisher = StdoutPublisher(console=console)
+    publisher: Publisher = StdoutPublisher(console=console)
+    history_store: AlertHistoryStore | None = None
+    if history_path is not None:
+        history_store = AlertHistoryStore(history_path)
+        publisher = HistoryRecorder(store=history_store, downstream=publisher)
+        console.log(f"recording alerts to {history_path}")
     deduper = AlertDeduper()
     rolling: deque[StreamUpdate] = deque()
     last_check_us = 0
@@ -690,6 +704,9 @@ def stream(
             )
     except KeyboardInterrupt:
         console.log("stopped by user")
+    finally:
+        if history_store is not None:
+            history_store.close()
 
 
 @app.command("demo")
@@ -759,17 +776,29 @@ def serve(
             help="Optional baseline DuckDB; enables sub-prefix detection.",
         ),
     ] = None,
+    history_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--history",
+            help="Optional alert-history DuckDB; enables GET /alerts queries.",
+        ),
+    ] = None,
     host: Annotated[str, typer.Option("--host", help="Bind address.")] = "127.0.0.1",
     port: Annotated[int, typer.Option("--port", help="TCP port.")] = 8000,
 ) -> None:
-    """Serve BGP detectors as a FastAPI app (POST /detect/bgp, GET /health)."""
+    """Serve BGP detectors as a FastAPI app (POST /detect/bgp, GET /health, GET /alerts)."""
     import uvicorn
 
     from netpulse.api.app import build_app
 
-    api = build_app(store_path=store_path, baseline_path=baseline_path)
+    api = build_app(
+        store_path=store_path,
+        baseline_path=baseline_path,
+        history_path=history_path,
+    )
     console.log(
-        f"serving NetPulse on http://{host}:{port} (store={store_path}, baseline={baseline_path})"
+        f"serving NetPulse on http://{host}:{port} "
+        f"(store={store_path}, baseline={baseline_path}, history={history_path})"
     )
     uvicorn.run(api, host=host, port=port)
 
