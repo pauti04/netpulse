@@ -86,7 +86,10 @@ commands: [BENCHMARK.md](BENCHMARK.md).
   does and does not mean.
 - [`docs/why-subprefix.md`](docs/why-subprefix.md) — why a same-prefix
   multi-origin (MOAS) check cannot catch the canonical 2008 YouTube
-  hijack, and what does.
+  hijack, and what does. Long-form draft for external publication:
+  [`docs/blog/`](docs/blog/why-textbook-bgp-detection-misses-the-textbook-hijack.md).
+- [`docs/comparison.md`](docs/comparison.md) — where NetPulse fits next
+  to ARTEMIS, BGPmon, Cloudflare Radar, RIPEstat / bgp.tools.
 - [`docs/architecture.md`](docs/architecture.md) — module boundaries and
   data-flow conventions.
 - [`docs/references.md`](docs/references.md) — RFCs, primary incident
