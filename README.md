@@ -66,13 +66,17 @@ flowchart LR
   RIS[RIPE RIS<br/>RouteViews<br/>RIPE Atlas] -- MRT / JSON --> Ingest[ingest]
   Ingest --> Store[(DuckDB)]
   Store --> Features[features<br/>per-window aggregation]
-  Features --> M[MOAS detector]
-  Features --> S[Sub-prefix<br/>hijack detector]
-  Features --> W[Withdraw-spike<br/>outage detector]
-  Features --> A[Atlas loss<br/>spike detector]
+  Features --> M[MOAS]
+  Features --> S[Sub-prefix<br/>hijack]
+  Features --> W[Withdraw<br/>spike]
+  Features --> RP[RPKI<br/>RFC 6811]
+  Features --> RL[Route leak<br/>RFC 7908]
+  Features --> A[Atlas<br/>loss spike]
   M --> Alerts[Alerts]
   S --> Alerts
   W --> Alerts
+  RP --> Alerts
+  RL --> Alerts
   A --> Alerts
   Alerts --> Out[stdout / FastAPI / RIS Live stream]
 ```
@@ -83,17 +87,34 @@ which is what makes the historical benchmark reproducible.
 
 ## Headline numbers
 
-| Detector              | Hour with hijack | 4 background hours (13,961 prefixes) |
-| --------------------- | ---------------: | -----------------------------------: |
-| `subprefix_hijack`    | 1 alert (TP)     |                              0 alerts |
-| `moas`                | 10 alerts        |                  ~40 alerts/hour mean |
-| `withdraw_spike`      | 0 alerts         |                              0 alerts |
-| `atlas_loss_spike`    | n/a (Atlas <2010) |                            0 alerts (live) |
+Two labeled historical incidents, of distinct shape:
 
-Real RRC00 archive data, **real RIB-derived baseline** (89 supernets
-inside `208.65.0.0/16` from RRC00's 16:00 UTC table dump on 2008-02-24,
-not a hand-curated row). Per-hour breakdown and reproduction commands:
-[BENCHMARK.md](BENCHMARK.md).
+| Incident                          | Shape                  | Detected? | Detector |
+| --------------------------------- | ---------------------- | :-------: | --------- |
+| 2008-02-24 YouTube / Pakistan     | sub-prefix hijack      |    ✅     | `subprefix_hijack` |
+| 2018-11-12 MainOne → Google leak  | RFC 7908 Type-1 leak   |    ✅¹    | `route_leak` |
+
+¹ Caught by the route-leak detector in unit tests against the real
+recorded AS-path (`15562 2914 20485 4809 37282 15169` — pulled from
+RRC00, first sighting `21:12:16Z` matching BGPmon's onset to the
+second). Reproducing on the archive ingest needs a CAIDA AS-relationships
+load — open work in [BENCHMARK.md](BENCHMARK.md#open).
+
+False-positive survey of the BGP hijack detector across **5 hours of
+real RRC00 data** (1 hijack hour + 4 background hours, 13,961 distinct
+prefixes total) using a real RIB-derived baseline:
+
+| Detector              | Hour with hijack | 4 background hours |
+| --------------------- | ---------------: | -----------------: |
+| `subprefix_hijack`    | 1 alert (TP)     |           0 alerts |
+| `moas`                | 10 alerts        |    ~40 alerts/hour |
+| `withdraw_spike`      | 0 alerts         |           0 alerts |
+
+Plus **RPKI Origin Validation** (RFC 6811) wired up live against
+Cloudflare's published rpki.json (859k VRPs), and **`netpulse stream`**
+running detectors against the RIPE RIS Live WebSocket in real time.
+
+Reproduction commands and methodology: [BENCHMARK.md](BENCHMARK.md).
 
 ## Reading list
 

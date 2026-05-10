@@ -125,6 +125,85 @@ def ingest_bgp(
     console.log(f"Wrote {count} BGP records.")
 
 
+@ingest_app.command("rpki")
+def ingest_rpki(
+    out: Annotated[
+        Path,
+        typer.Option("--out", help="Path to write the RPKI DuckDB store."),
+    ],
+    source: Annotated[
+        str,
+        typer.Option(
+            "--source",
+            help="rpki-client JSON URL. Default: Cloudflare's public feed.",
+        ),
+    ] = "https://rpki.cloudflare.com/rpki.json",
+) -> None:
+    """Pull a snapshot of RPKI Validated ROA Payloads into a DuckDB store."""
+    from netpulse.ingest.rpki import pull_rpki_snapshot
+    from netpulse.storage.rpki_store import RPKIStore
+
+    out.parent.mkdir(parents=True, exist_ok=True)
+    console.log(f"Pulling RPKI VRPs from {source} -> {out}")
+    store = RPKIStore(out)
+    try:
+        n = pull_rpki_snapshot(store, source_url=source)
+    finally:
+        store.close()
+    console.log(f"Wrote {n} RPKI VRPs.")
+
+
+@detect_app.command("rpki")
+def detect_rpki(
+    in_path: Annotated[
+        Path,
+        typer.Option("--in", help="Path to the BGP DuckDB store."),
+    ],
+    rpki_path: Annotated[
+        Path,
+        typer.Option("--rpki", help="Path to the RPKI VRPs DuckDB store."),
+    ],
+    start: Annotated[
+        str,
+        typer.Option("--start", help="ISO-8601 window start, UTC if no offset."),
+    ],
+    duration: Annotated[
+        str,
+        typer.Option("--duration", help="Window length: '5m', '1h', etc."),
+    ] = "5m",
+) -> None:
+    """Run RPKI Origin Validation over a window of stored BGP records."""
+    from netpulse.alerts.publishers import StdoutPublisher
+    from netpulse.detectors.rpki import RPKIInvalidDetector, RPKIValidator
+    from netpulse.features.bgp import extract_bgp_features
+    from netpulse.storage.duckdb_store import BGPStore
+    from netpulse.storage.rpki_store import RPKIStore
+
+    start_us = _parse_iso_to_us(start)
+    end_us = start_us + _parse_duration_to_us(duration)
+
+    rpki_store = RPKIStore(rpki_path)
+    try:
+        validator = RPKIValidator.from_store(rpki_store)
+    finally:
+        rpki_store.close()
+    console.log(f"loaded RPKI: {len(validator.by_prefix_v4) + len(validator.by_prefix_v6)} VRPs")
+
+    store = BGPStore(in_path)
+    try:
+        features = extract_bgp_features(store, start_us, end_us)
+    finally:
+        store.close()
+
+    publisher = StdoutPublisher(console=console)
+    n = publisher.publish_all(RPKIInvalidDetector(validator).score(features))
+
+    console.log(
+        f"window={start_us}-{end_us} announces={features.announce_total} "
+        f"prefixes={len(features.origins_by_prefix)} rpki_invalid_alerts={n}"
+    )
+
+
 @ingest_app.command("atlas")
 def ingest_atlas(
     msm_id: Annotated[

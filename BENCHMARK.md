@@ -1,16 +1,34 @@
 # Benchmark — BGP detectors on real RIPE RIS archive data
 
 The point of NetPulse is **honest evaluation against labeled historical
-incidents**. This file reports what the detectors do on real RRC00 traffic:
-one hour containing the 2008-02-24 YouTube/Pakistan hijack and four
-background hours either side of it for false-positive analysis.
+incidents**. Two cases are populated, of distinct *shape* — one a
+sub-prefix hijack, one a route leak — and the detector roster's
+coverage of each is reported as-is.
 
-## Headline
+## Per-incident outcomes
 
-| Detector             | Hour with hijack | Background (4 hours, 13,961 prefixes) | Verdict |
-| -------------------- | ---------------: | ------------------------------------: | :------ |
-| `subprefix_hijack`   |  **1 alert** (the hijack) |                            **0 alerts** | TPR = 1/1, FPR = 0 over the surveyed window |
-| `moas`               |          10 alerts |  ~40 alerts/hour mean (variance 10–145) | Noise floor; flags multi-origin prefixes regardless of hijack |
+| Incident                          | Shape           | Catching detector | Detected? | Real-data evidence in the pull |
+| --------------------------------- | --------------- | ----------------- | :-------: | ----- |
+| 2008-02-24 YouTube / Pakistan     | sub-prefix hijack | `subprefix_hijack` |    ✅     | first AS17557 announcement of `208.65.153.0/24` at RRC00: **2008-02-24 18:47:57Z**, matches the RIPE NCC case study |
+| 2018-11-12 MainOne → Google leak  | RFC 7908 Type-1 leak | `route_leak` (built; needs AS-relationship data) | ⚠ harness-only | first AS37282 transit observation at RRC00: **2018-11-12 21:12:16Z**, matches BGPmon's reported onset to the second; 203 distinct Google prefixes seen leaked |
+
+The MainOne case is detected by the `route_leak` detector in unit tests
+against the recorded path; reproducing on the archive data requires
+populating an AS-relationships dataset (CAIDA serial-2). See "Route-leak
+detector" below.
+
+## BGP false-positive survey (sub-prefix detector, real RIB baseline)
+
+| Detector             | Hour with YouTube hijack | Background (4 hours, 13,961 prefixes) |
+| -------------------- | ----------------------: | ------------------------------------: |
+| `subprefix_hijack`   | **1 alert** (the hijack) |                          **0 alerts** |
+| `moas`               |               10 alerts |               ~40 alerts/hour mean (variance 10–145) |
+| `withdraw_spike`     |                0 alerts |                              0 alerts |
+
+`subprefix_hijack` runs against a **real RIB-derived baseline** (89
+supernets in `208.65.0.0/16` from RRC00's 16:00 UTC table dump on
+2008-02-24, pulled in 47s with the libBGPStream filter), not a
+hand-curated row.
 
 The MOAS row is not "wrong" — same-prefix multi-origin events do happen
 constantly (anycast services, multi-homed customers). The point is that
@@ -139,6 +157,37 @@ and detector evaluation is well under one millisecond.
   cannot be validated against Atlas data — fusion benchmarking starts
   with a post-2010 incident.
 
+## Route-leak detector (RFC 7908)
+
+Type-1 leaks — customer accepts a route from one provider/peer and
+announces it upstream — appear in BGP as paths that violate the
+*valley-free* property. After an uphill `c2p` chain and an optional
+single `p2p` step, the path may only descend `p2c`; any subsequent
+`c2p` or `p2p` is a valley.
+
+`netpulse.detectors.route_leak.RouteLeakDetector` walks each observed
+AS-path, classifies adjacent ASN pairs against a relationships table
+(CAIDA's [serial-2 inferred relationships][caida] is the standard
+source), and flags paths containing a valley. Unknown relationships do
+not trigger an alert (no false positives from missing data) but the
+unknown-step count is reported in the alert evidence.
+
+Unit tests (`tests/test_detectors_route_leak.py`) exercise the
+algorithm on a stripped-down version of the actual MainOne path:
+
+```
+peer=15562 path=15562 -> 2914 -> 20485 -> 4809 -> 37282 -> 15169
+relationships: c2p, p2c, c2p, p2c, c2p
+                            ^^^ p2c followed by c2p == valley
+```
+
+The detector fires on this path with `step_directions =
+['c2p', 'p2c', 'c2p', 'p2c', 'c2p']`. Producing the same alert against
+the live RRC00 ingest is one CAIDA dataset away (open: ingest path
++ apply at replay time).
+
+[caida]: https://publicdata.caida.org/datasets/as-relationships/serial-2/
+
 ## A real-world finding: not every documented hijack reaches public RIS
 
 While trying to add the **2024-06-27 Cloudflare 1.1.1.1 incident** to
@@ -178,8 +227,47 @@ This is the bottleneck previously called out as future work; targeted
 ingest is now seconds-to-minutes for narrow questions instead of
 minutes-to-hours.
 
+## RPKI Origin Validation (RFC 6811)
+
+`netpulse ingest rpki` pulls a fresh snapshot of Validated ROA Payloads
+(VRPs) from a public rpki-client export — Cloudflare's
+[rpki.json][cloudflare-rpki] by default — and stores it as a DuckDB
+table. The shape was verified live (2026-05-10): 859k unique VRPs,
+each `{prefix, asn, maxLength, ta}`.
+
+`netpulse.detectors.rpki.RPKIInvalidDetector` implements RFC 6811
+Origin Validation strictly:
+
+- **Valid** — at least one VRP covers the prefix and has the right
+  ASN within `maxLength`.
+- **Invalid** — at least one VRP *covers* the prefix but none *match*
+  the (prefix, ASN). A VRP "covers" via supernet relationship and
+  "matches" when both the ASN matches and the observed prefix length
+  is in `[VRP.prefix_length, VRP.max_length]`.
+- **NotFound** — no covering VRP at any length.
+
+Run against any BGP store:
+
+```sh
+uv run netpulse ingest rpki --out data/rpki_snapshot.duckdb
+uv run netpulse detect rpki --in data/youtube_2008.duckdb \
+    --rpki data/rpki_snapshot.duckdb \
+    --start 2008-02-24T18:00:00 --duration 1h
+```
+
+For the 2008 YouTube fixture, RPKI is mostly **NotFound** — RPKI did
+not have meaningful coverage in 2008 — so the detector is silent on
+that historical case. RPKI is the right baseline source for *current*
+BGP traffic; for archived 2008 data the curated RIB baseline remains
+the right choice.
+
+[cloudflare-rpki]: https://rpki.cloudflare.com/rpki.json
+
 ## Open
 
+- **AS-relationships ingest** so the route-leak detector runs on the
+  archive data, not just unit tests. CAIDA's serial-2 dataset is the
+  standard source (~5 MB compressed, monthly).
 - **More labeled incidents from primary sources.** Schema and citation
   rules: `data/incidents/_README.md`. Candidate next: 2018-04-24
   Amazon Route 53 / MyEtherWallet (AS10297 sub-prefix hijack of
@@ -188,6 +276,8 @@ minutes-to-hours.
   finding makes RouteViews integration concrete — a single-collector
   view systematically misses incidents that get filtered before
   reaching that collector's peers.
-- **RPKI-based baselines.** The hand-curated one-row baselines work
-  for individual incidents; production systems would derive the
-  baseline from RPKI ROAs (RFCs 6480 / 8893).
+- **Per-incident store routing in the harness.** Currently the
+  benchmark replay command takes one `--store`; with two incidents
+  spanning different years, each needs its own store. Adding an
+  optional `bgp_store_path` field to incident JSON would let one
+  command score the whole corpus.
