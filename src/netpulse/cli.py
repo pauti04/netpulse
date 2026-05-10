@@ -258,6 +258,60 @@ def benchmark_replay(
     )
 
 
+@app.command("demo")
+def demo() -> None:
+    """Run the YouTube/Pakistan 2008 hijack against a bundled fixture (~1s, no setup)."""
+    from netpulse.alerts.publishers import StdoutPublisher
+    from netpulse.detectors.baseline import BGPBaseline
+    from netpulse.detectors.moas import MOASDetector
+    from netpulse.detectors.subprefix import SubPrefixHijackDetector
+    from netpulse.features.bgp import extract_bgp_features
+    from netpulse.storage.duckdb_store import BGPStore
+
+    repo_root = Path(__file__).resolve().parent.parent.parent
+    fixture = repo_root / "data" / "fixtures" / "youtube_2008_demo.duckdb"
+    if not fixture.exists():
+        console.print(f"[red]Demo fixture missing at {fixture}.[/]")
+        console.print(
+            "Run from a clone of the repo, or regenerate via scripts/extract_demo_fixture.py."
+        )
+        raise typer.Exit(1)
+
+    # 2008-02-24 18:45:00 UTC -- 18:50:00 UTC; 18:47:57 UTC is the documented onset.
+    window_start_us = 1_203_878_700_000_000
+    window_end_us = 1_203_879_000_000_000
+    onset_us = 1_203_878_877_000_000
+
+    baseline = BGPBaseline.build({"208.65.152.0/22": {36561}})
+
+    with BGPStore(fixture) as store:
+        feats = extract_bgp_features(store, window_start_us, window_end_us)
+
+    console.print("[bold]NetPulse demo[/] — 5-minute RRC00 slice around the YouTube hijack.")
+    console.print(
+        f"  records:    {feats.announce_total} announces / {feats.withdraw_total} withdraws"
+    )
+    console.print(f"  prefixes:   {len(feats.origins_by_prefix)} distinct")
+    console.print("  baseline:   1 supernet ([cyan]208.65.152.0/22 -> AS36561[/])")
+    console.print("  onset:      2008-02-24 18:47:57 UTC (AS17557 announces 208.65.153.0/24)")
+    console.print()
+
+    detectors = [MOASDetector(), SubPrefixHijackDetector(baseline)]
+    publisher = StdoutPublisher(console=console)
+    by_detector: dict[str, int] = {}
+    for det in detectors:
+        alerts = det.score(feats)
+        by_detector[det.name] = len(alerts)
+        publisher.publish_all(alerts)
+
+    console.print()
+    console.print(
+        "[bold green]Result[/]: "
+        + ", ".join(f"{n}={k}" for n, k in by_detector.items())
+        + f" -- onset at us={onset_us}, window_end us={window_end_us}"
+    )
+
+
 @app.command("serve")
 def serve() -> None:
     """Serve the alerts API and dashboard (not implemented yet)."""

@@ -46,6 +46,10 @@ data/raw/
 data/*.duckdb
 data/*.duckdb.wal
 
+# Allow committed demo fixtures (small, real RIS data slice).
+!data/fixtures/
+!data/fixtures/*.duckdb
+
 # Secrets
 .env
 .env.local
