@@ -1,5 +1,3 @@
-"""Schemas for normalized records persisted in DuckDB."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -7,9 +5,10 @@ from dataclasses import dataclass
 
 @dataclass(slots=True)
 class BGPRecord:
-    """A single normalized BGP update or withdrawal.
+    """One BGP announce or withdraw, normalized.
 
-    Timestamps are microseconds since the Unix epoch, UTC.
+    Timestamps are microseconds since the Unix epoch, UTC. ``update_type`` is
+    "A" or "W". ``as_path`` and ``communities`` are space-separated.
     """
 
     timestamp_us: int
@@ -17,10 +16,10 @@ class BGPRecord:
     peer_as: int
     peer_ip: str
     prefix: str
-    update_type: str  # "A" (announce) or "W" (withdraw)
+    update_type: str
     origin_as: int | None = None
-    as_path: str | None = None  # space-separated AS numbers
-    communities: str | None = None  # space-separated community values
+    as_path: str | None = None
+    communities: str | None = None
 
 
 BGP_RECORDS_TABLE = "bgp_records"
@@ -52,7 +51,6 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 def record_to_row(
     record: BGPRecord,
 ) -> tuple[int, str, int, str, str, int | None, str | None, str, str | None]:
-    """Convert a BGPRecord into the parameter tuple for INSERT_BGP_RECORD."""
     return (
         record.timestamp_us,
         record.collector,

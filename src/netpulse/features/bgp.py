@@ -1,5 +1,3 @@
-"""Per-window feature extraction for BGP records."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field

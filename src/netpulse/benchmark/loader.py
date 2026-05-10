@@ -42,6 +42,12 @@ def _incident_from_dict(payload: dict[str, Any], origin: Path) -> Incident:
     if end_us <= start_us:
         raise ValueError(f"{origin}: end_iso must be after start_iso")
 
+    onset_us: int | None = None
+    if "onset_iso" in payload and payload["onset_iso"] is not None:
+        onset_us = _iso_to_us(str(payload["onset_iso"]))
+        if not (start_us <= onset_us < end_us):
+            raise ValueError(f"{origin}: onset_iso must lie within [start_iso, end_iso)")
+
     extra = {
         k: v
         for k, v in payload.items()
@@ -51,6 +57,7 @@ def _incident_from_dict(payload: dict[str, Any], origin: Path) -> Incident:
             "prefix",
             "attacker_asn",
             "victim_asn",
+            "onset_iso",
             "notes",
             "verified",
         }
@@ -67,6 +74,7 @@ def _incident_from_dict(payload: dict[str, Any], origin: Path) -> Incident:
         prefix=payload.get("prefix"),
         attacker_asn=payload.get("attacker_asn"),
         victim_asn=payload.get("victim_asn"),
+        onset_us=onset_us,
         notes=str(payload.get("notes", "")),
         verified=bool(payload.get("verified", False)),
         extra=extra,

@@ -1,5 +1,3 @@
-"""Publishers that emit Alerts to outbound destinations."""
-
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -10,8 +8,6 @@ from netpulse.alerts import Alert
 
 
 class StdoutPublisher:
-    """Print one line per alert via Rich. Suitable for CLI runs and tests."""
-
     def __init__(self, console: Console | None = None) -> None:
         self.console = console or Console()
 
@@ -22,7 +18,7 @@ class StdoutPublisher:
             f"(ts={alert.timestamp_us}, "
             f"window={alert.window_start_us}-{alert.window_end_us})"
         )
-        # markup=False so literal "[warning]" is not parsed as a Rich style tag.
+        # markup=False keeps "[warning]" from being eaten as a Rich style tag.
         self.console.print(line, markup=False, highlight=False)
 
     def publish_all(self, alerts: Iterable[Alert]) -> int:

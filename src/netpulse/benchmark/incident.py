@@ -1,5 +1,3 @@
-"""Incident dataclass: a labeled historical event the replay harness scores against."""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -10,11 +8,10 @@ IncidentKind = Literal["hijack", "leak", "outage"]
 
 @dataclass(slots=True)
 class Incident:
-    """A labeled historical event used to score detectors.
+    """One labeled historical event the replay harness scores detectors against.
 
-    Timestamps are microseconds since the Unix epoch, UTC. Per project rule,
-    all fields here must be backed by a primary source cited in
-    ``source_url``; no fabricated AS numbers, prefixes, or timestamps.
+    Every field must be backed by the primary source cited in ``source_url``.
+    Timestamps are microseconds since the Unix epoch, UTC.
     """
 
     id: str
@@ -27,6 +24,7 @@ class Incident:
     prefix: str | None = None
     attacker_asn: int | None = None
     victim_asn: int | None = None
+    onset_us: int | None = None  # actual event onset, if known
     notes: str = ""
     verified: bool = False
     extra: dict[str, object] = field(default_factory=dict)

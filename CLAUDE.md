@@ -93,16 +93,19 @@ Data flow: `ingest -> storage -> features -> detectors -> alerts -> (publishers 
 - [x] Phase 1: BGP ingestion — `netpulse ingest bgp` pulls from RIPE RIS
       via `pybgpstream` into the DuckDB store; `features.bgp` aggregates
       per-prefix origins and announce/withdraw counts over a window.
-- [x] Phase 2: BGP detector v1 — `MOASDetector` flags prefixes with more
-      than one origin AS in the window. Wired up under `netpulse detect
-      bgp`. Future work (v2): baseline-window comparison to suppress
-      chronic multi-origin prefixes (anycast).
-- [~] Phase 3: Replay harness + incident dataset — harness is complete
+- [x] Phase 2: BGP detectors — `MOASDetector` flags any multi-origin
+      prefix; `SubPrefixHijackDetector` flags a more-specific announced
+      from an AS unauthorized for the covering supernet (the actual
+      shape of the YouTube hijack). Both wired through `netpulse detect
+      bgp`. v2 work: baseline-window suppression of chronic multi-origin
+      prefixes in MOAS.
+- [~] Phase 3: Replay harness + incident dataset — harness complete
       (`netpulse benchmark replay`, expanding-window latency, summary
-      metrics) but the dataset has only one populated example
-      (`youtube_pakistan_2008.json`); the remaining ~19 incidents are
-      blocked on the user populating them from primary sources per the
-      hard rule against fabricated incident data.
+      metrics, optional baseline). One labeled incident populated
+      (`youtube_pakistan_2008.json`, verified=true with onset_iso pulled
+      from the data); remaining ~19 incidents blocked on user research.
+      First real benchmark: 1/1 detected, 3.0s latency from onset on
+      real RRC00 archive data — see `BENCHMARK.md`.
 - [ ] Phase 4: RIPE Atlas integration — _blocked_: cannot write code
       against `ripe.atlas.cousteau` / `ripe.atlas.sagan` response shapes
       without seeing real output (hard rule 2). User to paste a real

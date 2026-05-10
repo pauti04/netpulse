@@ -9,7 +9,13 @@ reproducible benchmark.
 
 ## Status
 
-Pre-alpha. Phase 0 (setup) complete; Phase 1 (BGP ingestion) in progress.
+Pre-alpha. Phases 0–3 (setup, BGP ingestion, MOAS + sub-prefix hijack
+detectors, replay harness with one labeled incident) are working
+end-to-end. **Real benchmark numbers are in [BENCHMARK.md](BENCHMARK.md):**
+the sub-prefix detector catches the canonical YouTube/Pakistan 2008 hijack
+on real RIPE RIS archive data with zero false positives in the surrounding
+hour, at a latency bounded by the configured chunk size.
+
 See [CLAUDE.md](CLAUDE.md) for full project context, roadmap, and rules.
 
 ## Quickstart

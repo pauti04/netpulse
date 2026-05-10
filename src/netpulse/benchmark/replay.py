@@ -28,14 +28,11 @@ def replay_bgp_incident(
     detectors: Sequence[DetectorBase[BGPWindowFeatures]],
     chunk_us: int = 60_000_000,
 ) -> ReplayResult:
-    """Walk an *expanding* window from the incident start to find first detection.
+    """Replay the incident and return first-detection latency + final alerts.
 
-    At each step the feature window covers ``[incident.start_us, chunk_end)`` —
-    the same view a streaming detector would have if the records arrived in
-    order. Latency is the first ``chunk_end`` at which an alert matching
-    ``incident.prefix`` appears (or any alert, if the incident has no prefix).
-    The returned ``alerts`` are the canonical set extracted over the full
-    incident window.
+    Each step queries an expanding window ``[start_us, chunk_end)`` so latency
+    reflects what a streaming detector would have seen as records arrived in
+    order. Reported alerts are extracted once over the full incident window.
     """
     if chunk_us <= 0:
         raise ValueError("chunk_us must be positive")
@@ -59,9 +56,8 @@ def replay_bgp_incident(
     for det in detectors:
         captured.extend(det.score(full_features))
 
-    latency_us = (
-        first_match_time_us - incident.start_us if first_match_time_us is not None else None
-    )
+    reference_us = incident.onset_us if incident.onset_us is not None else incident.start_us
+    latency_us = first_match_time_us - reference_us if first_match_time_us is not None else None
 
     return ReplayResult(
         incident_id=incident.id,

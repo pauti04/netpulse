@@ -92,4 +92,7 @@ def test_youtube_fixture_loads() -> None:
     assert inc.prefix == "208.65.153.0/24"
     assert inc.attacker_asn == 17557
     assert inc.victim_asn == 36561
-    assert inc.verified is False
+    assert inc.verified is True
+    assert inc.onset_us is not None
+    # Onset must lie strictly within the search window.
+    assert inc.start_us <= inc.onset_us < inc.end_us

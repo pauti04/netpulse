@@ -1,11 +1,4 @@
-"""MOAS (Multiple Origin AS) detector v1.
-
-Flags prefixes seen with more than one distinct origin AS in the window. A
-MOAS event can indicate a route hijack or a legitimate multi-origin prefix
-(e.g., anycast); v1 emits a warning per prefix and lets the operator
-investigate. A baseline-comparison variant that suppresses chronic
-multi-origin prefixes is intended for v2.
-"""
+"""MOAS detector: flag prefixes with more than one origin AS in the window."""
 
 from __future__ import annotations
 

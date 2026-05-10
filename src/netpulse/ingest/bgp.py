@@ -1,28 +1,14 @@
-"""BGP ingestion via pybgpstream (libBGPStream wrapper).
-
-This module imports ``pybgpstream`` at load time and raises a descriptive
-error if the native library is missing. That keeps callers from getting an
-opaque ``ImportError`` deep inside their own code.
-
-API surface used (pybgpstream >= 2.0):
-- ``pybgpstream.BGPStream(from_time, until_time, collectors, record_type)``
-- iterating the stream yields ``BGPElem`` objects with attributes:
-  ``type`` (str: "A" announce / "W" withdraw / "R" rib),
-  ``time`` (float epoch seconds), ``peer_asn`` (int), ``peer_address`` (str),
-  ``collector`` (str), and ``fields`` (dict, with keys ``prefix``,
-  ``as-path``, ``communities`` for announces; ``prefix`` for withdraws).
-"""
+"""BGP ingestion via pybgpstream."""
 
 from __future__ import annotations
 
 try:
     import pybgpstream
-except ImportError as e:  # pragma: no cover - import-time guard
+except ImportError as e:  # pragma: no cover
     raise ImportError(
-        "pybgpstream is required for BGP ingestion but failed to import. "
-        "Install the native libBGPStream first "
-        "(macOS: 'brew install libbgpstream'; Linux: see "
-        "https://bgpstream.caida.org/docs/install) and then run 'uv sync'."
+        "pybgpstream failed to import. Install libBGPStream first "
+        "(macOS: 'brew install bgpstream'; Linux: "
+        "https://bgpstream.caida.org/docs/install), then re-run 'uv sync'."
     ) from e
 
 from netpulse.storage.duckdb_store import BGPStore
@@ -46,10 +32,6 @@ def _parse_origin_as(as_path: str | None) -> int | None:
 
 
 def _normalize_communities(value: object) -> str | None:
-    """libBGPStream reports communities as a set/list of "asn:value" strings.
-
-    Normalize to a single space-separated string for storage, or None if absent.
-    """
     if value is None:
         return None
     if isinstance(value, str):
@@ -65,22 +47,23 @@ def pull_bgp_window(
     start_us: int,
     end_us: int,
     store: BGPStore,
+    record_type: str = "updates",
 ) -> int:
-    """Pull BGP updates for ``[start_us, end_us)`` from ``collector`` into ``store``.
+    """Pull ``[start_us, end_us)`` from ``collector`` into ``store``.
 
-    Returns the number of records written.
+    ``record_type`` is ``"updates"`` (announces+withdraws) or ``"ribs"`` (a
+    full table snapshot at each dump time within the window). RIB entries
+    are stored with ``update_type='A'`` since semantically they are
+    "currently announced".
     """
     if end_us <= start_us:
         raise ValueError("end_us must be greater than start_us")
 
-    from_time = start_us // 1_000_000
-    until_time = end_us // 1_000_000
-
     stream = pybgpstream.BGPStream(
-        from_time=from_time,
-        until_time=until_time,
+        from_time=start_us // 1_000_000,
+        until_time=end_us // 1_000_000,
         collectors=[collector],
-        record_type="updates",
+        record_type=record_type,
     )
 
     total = 0
@@ -88,6 +71,8 @@ def pull_bgp_window(
 
     for elem in stream:
         update_type = getattr(elem, "type", None)
+        if update_type == "R":
+            update_type = "A"
         if update_type not in ("A", "W"):
             continue
 

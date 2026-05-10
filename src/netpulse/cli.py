@@ -76,10 +76,20 @@ def ingest_bgp(
         str,
         typer.Option("--duration", help="Window length: '1h', '30m', '5s'."),
     ] = "1h",
+    record_type: Annotated[
+        str,
+        typer.Option(
+            "--record-type",
+            help="'updates' (announces+withdraws) or 'ribs' (RIB snapshots).",
+        ),
+    ] = "updates",
 ) -> None:
-    """Pull a window of BGP updates from a collector into a DuckDB store."""
+    """Pull a window of BGP records from a collector into a DuckDB store."""
     from netpulse.ingest.bgp import pull_bgp_window
     from netpulse.storage.duckdb_store import BGPStore
+
+    if record_type not in ("updates", "ribs"):
+        raise typer.BadParameter("--record-type must be 'updates' or 'ribs'")
 
     start_us = _parse_iso_to_us(start)
     end_us = start_us + _parse_duration_to_us(duration)
@@ -87,12 +97,12 @@ def ingest_bgp(
     out.parent.mkdir(parents=True, exist_ok=True)
 
     console.log(
-        f"Pulling BGP updates from collector={collector} "
+        f"Pulling collector={collector} record_type={record_type} "
         f"start_us={start_us} end_us={end_us} -> {out}"
     )
     store = BGPStore(out)
     try:
-        count = pull_bgp_window(collector, start_us, end_us, store)
+        count = pull_bgp_window(collector, start_us, end_us, store, record_type=record_type)
     finally:
         store.close()
     console.log(f"Wrote {count} BGP records.")
@@ -119,11 +129,21 @@ def detect_bgp(
             help="MOAS threshold: skip prefixes seen fewer than N times in the window.",
         ),
     ] = 1,
+    baseline_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--baseline",
+            help="DuckDB store with a RIB baseline; enables the sub-prefix hijack detector.",
+        ),
+    ] = None,
 ) -> None:
     """Run BGP detectors over a window of stored data and print alerts."""
     from netpulse.alerts.publishers import StdoutPublisher
+    from netpulse.detectors.base import DetectorBase
+    from netpulse.detectors.baseline import BGPBaseline
     from netpulse.detectors.moas import MOASDetector
-    from netpulse.features.bgp import extract_bgp_features
+    from netpulse.detectors.subprefix import SubPrefixHijackDetector
+    from netpulse.features.bgp import BGPWindowFeatures, extract_bgp_features
     from netpulse.storage.duckdb_store import BGPStore
 
     start_us = _parse_iso_to_us(start)
@@ -135,8 +155,19 @@ def detect_bgp(
     finally:
         store.close()
 
+    detectors: list[DetectorBase[BGPWindowFeatures]] = [
+        MOASDetector(min_announce_count=min_announce_count)
+    ]
+    if baseline_path is not None:
+        baseline_store = BGPStore(baseline_path)
+        try:
+            baseline = BGPBaseline.from_store(baseline_store)
+        finally:
+            baseline_store.close()
+        console.log(f"loaded baseline: {len(baseline.origins)} prefixes")
+        detectors.append(SubPrefixHijackDetector(baseline))
+
     publisher = StdoutPublisher(console=console)
-    detectors = [MOASDetector(min_announce_count=min_announce_count)]
     total_alerts = 0
     for det in detectors:
         total_alerts += publisher.publish_all(det.score(features))
@@ -169,12 +200,23 @@ def benchmark_replay(
         str,
         typer.Option("--chunk", help="Sub-window length used to approximate latency."),
     ] = "1m",
+    baseline_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--baseline",
+            help="DuckDB store with a RIB baseline; enables the sub-prefix hijack detector.",
+        ),
+    ] = None,
 ) -> None:
     """Replay every incident in the directory through the BGP detectors."""
     from netpulse.benchmark.loader import load_incidents
     from netpulse.benchmark.metrics import summarize
     from netpulse.benchmark.replay import replay_bgp_incident
+    from netpulse.detectors.base import DetectorBase
+    from netpulse.detectors.baseline import BGPBaseline
     from netpulse.detectors.moas import MOASDetector
+    from netpulse.detectors.subprefix import SubPrefixHijackDetector
+    from netpulse.features.bgp import BGPWindowFeatures
     from netpulse.storage.duckdb_store import BGPStore
 
     chunk_us = _parse_duration_to_us(chunk)
@@ -183,7 +225,16 @@ def benchmark_replay(
         console.log(f"No incidents found in {incidents_dir}.")
         raise typer.Exit(code=1)
 
-    detectors = [MOASDetector()]
+    detectors: list[DetectorBase[BGPWindowFeatures]] = [MOASDetector()]
+    if baseline_path is not None:
+        baseline_store = BGPStore(baseline_path)
+        try:
+            baseline = BGPBaseline.from_store(baseline_store)
+        finally:
+            baseline_store.close()
+        console.log(f"loaded baseline: {len(baseline.origins)} prefixes")
+        detectors.append(SubPrefixHijackDetector(baseline))
+
     results = []
     store = BGPStore(store_path)
     try:
