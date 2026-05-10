@@ -1,0 +1,39 @@
+# Keep the image small: ignore everything except what the runtime
+# actually needs.
+
+.git/
+.github/
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Test + tooling
+tests/
+docs/
+scripts/
+Makefile
+benchmark*.md
+BENCHMARK.md
+CLAUDE.md
+
+# Cached artifacts that aren't part of the deployed image.
+data/youtube_2008.duckdb
+data/youtube_2008.duckdb.wal
+data/mainone_2018.duckdb
+data/mainone_2018.duckdb.wal
+data/mainone_2018_atlas.duckdb
+data/mainone_2018_atlas.duckdb.wal
+data/rpki_snapshot.duckdb
+data/rpki_snapshot.duckdb.wal
+data/caida_asrel*.duckdb
+data/caida_asrel*.duckdb.wal
+data/fpr/
+data/raw/
+
+# Editor / OS
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/

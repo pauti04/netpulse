@@ -1,0 +1,42 @@
+# NetPulse on Fly.io
+#
+# Deploys the FastAPI surface bound to the bundled YouTube fixture +
+# RIB baseline -- one HTTP service that returns real BGP detector
+# alerts for the canonical incident. To deploy:
+#
+#     flyctl auth login
+#     flyctl apps create netpulse        # one-time
+#     flyctl deploy                      # builds Dockerfile, ships
+#
+# The default app name 'netpulse' may already be taken on Fly; pass
+# --app=<your-name> to flyctl deploy to use something else, or rename
+# the app key here.
+
+app = "netpulse"
+primary_region = "iad"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PYTHONUNBUFFERED = "1"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "10s"
+    method = "GET"
+    path = "/health"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 512

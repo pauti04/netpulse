@@ -150,6 +150,24 @@ Reproduction commands and methodology: [BENCHMARK.md](BENCHMARK.md).
   hard rules (no fabricated incident data, no invented API shapes,
   no over-engineering).
 
+## Deploy
+
+A `Dockerfile` and `fly.toml` ship the FastAPI surface as a container.
+The image bakes in the bundled YouTube fixture + RIB baseline, so a
+fresh deployment answers `POST /detect/bgp` against the canonical
+incident with no setup:
+
+```sh
+brew install flyctl                 # one-time
+flyctl auth login                   # one-time
+flyctl deploy --app=<your-name>     # builds Dockerfile, ships
+```
+
+The deployed `/health` endpoint reports the loaded baseline size;
+`POST /detect/bgp` accepts `{start_iso, duration_s}` and returns the
+same alerts the CLI prints, as JSON. To swap stores, mount different
+DuckDB files as a volume and override the CMD in `fly.toml`.
+
 ## Install for full BGP/Atlas pulls
 
 ```sh
