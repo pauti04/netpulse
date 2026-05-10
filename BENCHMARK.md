@@ -1,57 +1,89 @@
-# Benchmark — YouTube / Pakistan 2008 hijack
+# Benchmark — BGP detectors on real RIPE RIS archive data
 
 The point of NetPulse is **honest evaluation against labeled historical
-incidents**. This file reports the first such number: replaying the
-canonical YouTube/Pakistan 2008 BGP hijack against real RIPE RIS archive
-data with the detectors implemented so far.
+incidents**. This file reports what the detectors do on real RRC00 traffic:
+one hour containing the 2008-02-24 YouTube/Pakistan hijack and four
+background hours either side of it for false-positive analysis.
 
 ## Headline
 
-| Detector             | Alerts on 1h of real RRC00 data | Caught YouTube hijack? | Latency from onset |
-| -------------------- | ------------------------------: | :--------------------: | -----------------: |
-| `subprefix_hijack`   |                               1 |          yes           |             3.0 s  |
-| `moas`               |                              10 |           no¹          |                n/a |
+| Detector             | Hour with hijack | Background (4 hours, 13,961 prefixes) | Verdict |
+| -------------------- | ---------------: | ------------------------------------: | :------ |
+| `subprefix_hijack`   |  **1 alert** (the hijack) |                            **0 alerts** | TPR = 1/1, FPR = 0 over the surveyed window |
+| `moas`               |          10 alerts |  ~40 alerts/hour mean (variance 10–145) | Noise floor; flags multi-origin prefixes regardless of hijack |
 
-¹ MOAS would only fire on the YouTube hijack if the legitimate AS36561
-announcement and the AS17557 hijack were observed for the *same* prefix.
-They were not — this was a sub-prefix hijack (`/22` legit vs `/24` hijack),
-which is why a supernet-aware detector is required.
+The MOAS row is not "wrong" — same-prefix multi-origin events do happen
+constantly (anycast services, multi-homed customers). The point is that
+they're not, on their own, hijack signals; the canonical YouTube case is
+in fact a *sub-prefix* hijack, which is why a supernet-aware detector is
+required. See [`docs/why-subprefix.md`](docs/why-subprefix.md) for the
+walkthrough.
 
-## What happened
+![YouTube/Pakistan hijack onset at RRC00](docs/img/youtube_2008_onset.svg)
+
+## Per-hour table
+
+```
+window                                        ann     wd    pfxs  moas  sub
+2008-02-23 00:00 UTC (background)           43,385  5,665  3,660    14    0
+2008-02-24 06:00 UTC (background)           55,067  7,042  2,840   145    0
+2008-02-24 12:00 UTC (background)           49,682  6,673  2,924    16    0
+2008-02-24 18:00 UTC (HIJACK)               51,757  4,899  7,738    10    1
+2008-02-25 00:00 UTC (background)           42,272  4,203  4,537    13    0
+TOTAL                                      242,163 28,482 21,699   198    1
+```
+
+The sole sub-prefix alert across these 5 hours, fired in the hijack window:
+
+```
+[critical] subprefix_hijack :: 208.65.153.0/24 :: more-specific of
+208.65.152.0/22 (legit origins [36561]) announced from unauthorized
+origin(s) [17557]
+```
+
+## What "the hijack" actually was
 
 On 2008-02-24, AS17557 (Pakistan Telecom) announced `208.65.153.0/24`, a
-more-specific of YouTube's `208.65.152.0/22` (AS36561). The announcement
-propagated globally via PCCW (AS3491). Source:
+more-specific of YouTube's `208.65.152.0/22` (AS36561), propagating
+globally via PCCW (AS3491). Source:
 <https://www.ripe.net/publications/news/youtube-hijacking-a-ripe-ncc-ris-case-study/>.
 
-In the data we pulled from RRC00:
+In the data:
 
-- First AS17557 announcement of `208.65.153.0/24` observed at the collector:
+- First AS17557 announcement of `208.65.153.0/24` observed at RRC00:
   **2008-02-24 18:47:57 UTC** (peer AS3333, as-path
   `3333 12859 6461 3491 17557`).
-- 1-hour window 18:00–19:00 UTC: 51,757 announces + 4,899 withdraws across
-  7,738 distinct prefixes.
+- The chart above shows announces-per-second around the onset, the
+  hijacking AS in red, all other prefixes in grey.
 
-## How the number was produced
-
-Reproducible end-to-end on a fresh checkout:
+## Reproducing
 
 ```sh
-# 1. Install (requires libBGPStream — see README)
-make install
+# 0. Native lib (macOS)
+brew install bgpstream
 
-# 2. Pull 1h of RRC00 updates around the hijack onset (~80s, ~57k records)
-uv run netpulse ingest bgp \
-    --collector rrc00 \
-    --start 2008-02-24T18:00:00 \
-    --duration 1h \
-    --out data/youtube_2008.duckdb
+# 1. Install with the BGP extra
+CFLAGS="-I$(brew --prefix)/include" \
+LDFLAGS="-L$(brew --prefix)/lib" \
+    uv sync --extra bgp
 
-# 3. Seed the focused baseline (legit YouTube /22 -> AS36561, sourced
-#    from the RIPE writeup cited in the incident JSON).
+# 2. Pull the 5 hours (~6 minutes total at 2008 RRC00 volumes)
+mkdir -p data/fpr
+uv run netpulse ingest bgp --collector rrc00 --start 2008-02-24T18:00:00 \
+    --duration 1h --out data/youtube_2008.duckdb
+for s in 2008-02-23T00:00:00 2008-02-24T06:00:00 \
+         2008-02-24T12:00:00 2008-02-25T00:00:00; do
+    uv run netpulse ingest bgp --collector rrc00 --start "$s" \
+        --duration 1h --out data/fpr/fpr_${s//[:-]/_}.duckdb
+done
+
+# 3. Seed the focused baseline
 uv run python scripts/seed_youtube_baseline.py data/youtube_2008_baseline.duckdb
 
-# 4. Replay the labeled incident
+# 4. Per-hour detector breakdown (the table above)
+uv run python scripts/run_fpr_analysis.py
+
+# 5. Single-incident replay with latency
 uv run netpulse benchmark replay \
     --incidents data/incidents \
     --store data/youtube_2008.duckdb \
@@ -59,73 +91,60 @@ uv run netpulse benchmark replay \
     --chunk 1m
 ```
 
-Output:
+For a one-command preview that does NOT require libBGPStream:
 
-```
-loaded baseline: 1 prefixes
-youtube_pakistan_2008: DETECTED (latency=3.0s, alerts=11)
-summary: 1/1 detected (rate=100.00%); mean_latency_us=3000000.0
+```sh
+uv sync && uv run netpulse demo
 ```
 
-The `alerts=11` count includes one true-positive sub-prefix hijack alert
-plus 10 MOAS alerts on unrelated multi-origin prefixes in the same window.
+## Latency
 
-## Latency model
+Latency in the replay harness is the time from documented event onset
+(`onset_iso` in the incident JSON) to the right edge of the first
+expanding-window chunk in which the detector fires. With `--chunk 1m`
+and the YouTube onset at `2008-02-24 18:47:57Z`, the alert lands at
+`18:48:00Z` — so the **reported latency (3.0 s) is bounded by the chunk
+size, not by detector reaction time.** A streaming implementation
+(see "Open: streaming detection") would emit the alert on the *first*
+qualifying update; in this pull that update is the one at 18:47:57 itself,
+and detector evaluation is well under one millisecond.
 
-`latency_us` is `first_chunk_end_us − onset_us`, where `first_chunk_end_us`
-is the right edge of the first expanding-window chunk in which an alert
-matching the incident's prefix appeared. With `--chunk 1m` and
-`onset = 18:47:57Z`, the alert lands at `18:48:00Z` so latency is bounded
-above by the chunk size:
-
-| `--chunk` | Reported latency | Notes                                                      |
-| --------- | ---------------: | ---------------------------------------------------------- |
-| `1m`      |           3.0 s  | dominated by chunk granularity, not detector reaction time |
-| `5m`      |         123.0 s  | (re-run: same first detection, coarser bound)              |
-
-The harness's contribution to latency is therefore the chunk size; the
-underlying detector evaluates a window in well under a second.
+| `--chunk` | Reported latency |
+| --------- | ---------------: |
+| `5s`      |             3.0s |
+| `1m`      |             3.0s |
+| `5m`      |           123.0s |
 
 ## What this benchmark is not
 
-- **It is not a full-corpus benchmark.** Phase 3 of the project roadmap
-  (see `CLAUDE.md`) calls for ~20 labeled incidents. Only YouTube/Pakistan
-  is populated. The fixture schema and primary-source citation rules are
-  documented in `data/incidents/_README.md`. Adding more incidents is a
-  research task, not a code task.
-- **The baseline is focused, not a real RIB.** A full RRC00 RIB at
-  `2008-02-24T16:00:00Z` would be the proper baseline. Pulling one through
-  pybgpstream takes ~15–20 minutes of pure-Python iteration in the current
-  ingest path; we use `scripts/seed_youtube_baseline.py` to write the one
-  prefix that matters for the YouTube case (sourced from the cited RIPE
-  writeup) so the benchmark is reproducible in seconds. Optimizing the RIB
-  ingest is open work.
-- **No Atlas / DNS signals yet.** Multi-signal fusion (Phases 4–6) starts
-  after we have real Atlas response shapes to write against.
+- **One labeled incident.** The fixture set in `data/incidents/` has
+  `youtube_pakistan_2008.json` only. Schema and primary-source citation
+  rules: `data/incidents/_README.md`. Adding more is research, not code.
+- **Focused, not RIB-derived, baseline.** `scripts/seed_youtube_baseline.py`
+  writes a single (prefix, ASN) row sourced from the cited RIPE writeup
+  rather than ingesting a full `record_type=ribs` snapshot from RRC00 at
+  16:00 UTC; the ingest path is the same one that takes minutes per RIB
+  and is why we use a focused baseline here.
+- **No fusion yet.** The Atlas signal works in isolation
+  (`src/netpulse/detectors/atlas_loss.py`, verified live against
+  measurement 1001) but is not yet correlated with BGP detections in a
+  single replay. RIPE Atlas launched in 2010, so the YouTube hijack
+  cannot be validated against Atlas data — fusion benchmarking starts
+  with a post-2010 incident.
 
-## Open: next incident to add
+## Open
 
-The 2018-04-24 Amazon Route 53 / MyEtherWallet hijack (AS10297 announced
-`/24` more-specifics inside Amazon's `205.251.192.0/18` allocation,
-redirecting Route 53 DNS for ~2 hours; primary source:
-<https://blog.cloudflare.com/bgp-leaks-and-crypto-currencies/>). The
-detector and harness already handle this shape; what remains is:
-
-1. Pull a 30-minute window of RRC00 updates around the documented onset
-   (slow today: 2018-era updates at multi-hop volume run several minutes
-   in the current ingest path — same bottleneck as the RIB pull above).
-2. Find the first AS10297 announcement of a Route 53 sub-prefix in the
-   pulled data, and use that timestamp as `onset_iso`.
-3. Drop a new fixture under `data/incidents/myetherwallet_2018.json`
-   citing the Cloudflare writeup and the ARIN WHOIS for
-   `205.251.192.0/18` (allocated to Amazon, AS16509).
-4. Add a one-line baseline seed mirroring `scripts/seed_youtube_baseline.py`.
-
-Skipped from this push because the ingest exceeded the time budget; the
-work above is well-scoped and unblocked.
-
-## Pulled-data files
-
-The DuckDB stores produced by the steps above are not committed — they are
-in `.gitignore` (`data/*.duckdb`). Re-create them with the commands in
-**How the number was produced**.
+- **Next incident** — 2018-04-24 Amazon Route 53 / MyEtherWallet hijack
+  (AS10297 announced `/24` more-specifics inside Amazon's
+  `205.251.192.0/18`; primary source:
+  <https://blog.cloudflare.com/bgp-leaks-and-crypto-currencies/>). The
+  detector and harness already handle this shape; the limiter is the
+  ingest-path bottleneck on 2018-volume multi-hop RRC00 updates, which
+  also blocks full-RIB ingestion.
+- **Streaming detection** — `netpulse stream` against the RIS Live
+  WebSocket would tighten reported latency from "chunk size" to
+  "first-qualifying-update arrival."
+- **Faster ingest path** — pybgpstream's pure-Python iteration is the
+  bottleneck. Filtering inside libBGPStream (its native filter language)
+  could give 100×+ speedups and unlock both larger backgrounds and the
+  full RIB baseline.

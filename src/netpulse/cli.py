@@ -108,6 +108,95 @@ def ingest_bgp(
     console.log(f"Wrote {count} BGP records.")
 
 
+@ingest_app.command("atlas")
+def ingest_atlas(
+    msm_id: Annotated[
+        int,
+        typer.Option("--msm", help="RIPE Atlas measurement ID (e.g. 1001)."),
+    ],
+    start: Annotated[
+        str,
+        typer.Option("--start", help="ISO-8601 window start, UTC if no offset."),
+    ],
+    out: Annotated[
+        Path,
+        typer.Option("--out", help="Path to the Atlas DuckDB store."),
+    ],
+    duration: Annotated[
+        str,
+        typer.Option("--duration", help="Window length: '5m', '1h', etc."),
+    ] = "5m",
+) -> None:
+    """Pull a window of RIPE Atlas ping results into a DuckDB store."""
+    from netpulse.ingest.atlas import pull_atlas_ping_window
+    from netpulse.storage.atlas_store import AtlasPingStore
+
+    start_us = _parse_iso_to_us(start)
+    end_us = start_us + _parse_duration_to_us(duration)
+
+    out.parent.mkdir(parents=True, exist_ok=True)
+    console.log(f"Pulling Atlas msm={msm_id} start_us={start_us} end_us={end_us} -> {out}")
+    store = AtlasPingStore(out)
+    try:
+        n = pull_atlas_ping_window(msm_id, start_us, end_us, store)
+    finally:
+        store.close()
+    console.log(f"Wrote {n} Atlas ping records.")
+
+
+@detect_app.command("atlas")
+def detect_atlas(
+    in_path: Annotated[
+        Path,
+        typer.Option("--in", help="Path to the Atlas DuckDB store."),
+    ],
+    msm_id: Annotated[
+        int,
+        typer.Option("--msm", help="Measurement ID to evaluate."),
+    ],
+    start: Annotated[
+        str,
+        typer.Option("--start", help="ISO-8601 window start, UTC if no offset."),
+    ],
+    duration: Annotated[
+        str,
+        typer.Option("--duration", help="Window length: '5m', '1h', etc."),
+    ] = "5m",
+    threshold: Annotated[
+        float,
+        typer.Option(
+            "--threshold",
+            help="Full-loss rate above which the loss-spike detector fires.",
+        ),
+    ] = 0.20,
+) -> None:
+    """Run Atlas detectors over a window of stored ping results."""
+    from netpulse.alerts.publishers import StdoutPublisher
+    from netpulse.detectors.atlas_loss import AtlasLossSpikeDetector
+    from netpulse.features.atlas import extract_atlas_features
+    from netpulse.storage.atlas_store import AtlasPingStore
+
+    start_us = _parse_iso_to_us(start)
+    end_us = start_us + _parse_duration_to_us(duration)
+
+    store = AtlasPingStore(in_path)
+    try:
+        feats = extract_atlas_features(store, msm_id, start_us, end_us)
+    finally:
+        store.close()
+
+    publisher = StdoutPublisher(console=console)
+    n = publisher.publish_all(
+        AtlasLossSpikeDetector(full_loss_rate_threshold=threshold).score(feats)
+    )
+
+    console.log(
+        f"msm={msm_id} window={start_us}-{end_us} "
+        f"results={feats.n_results} full_loss={feats.n_full_loss} "
+        f"any_loss_rate={feats.any_loss_rate:.2%} alerts={n}"
+    )
+
+
 @detect_app.command("bgp")
 def detect_bgp(
     in_path: Annotated[

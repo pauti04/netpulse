@@ -33,6 +33,10 @@ dependencies = [
 # `uv sync` cleanly.
 bgp = ["pybgpstream>=2.0.0"]
 
+# Charts and figures generated under docs/img/. Pure-Python install, kept
+# optional so the core install stays small.
+viz = ["matplotlib>=3.8"]
+
 [project.scripts]
 netpulse = "netpulse.cli:app"
 
