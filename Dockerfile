@@ -53,8 +53,14 @@ EXPOSE 8000
 # Default: serve against the bundled YouTube fixture + RIB baseline.
 # fly.toml or `docker run` can override the CMD to point at different
 # stores once they are mounted as volumes.
+#
+# --history points at /tmp so the alerts table is per-machine-life;
+# /alerts will return only alerts emitted by /detect/bgp in this
+# container's lifetime. A persistent volume + a mount path is what a
+# production deployment would substitute.
 CMD ["netpulse", "serve", \
      "--store", "/app/data/fixtures/youtube_2008_demo.duckdb", \
      "--baseline", "/app/data/baselines/yt_rib_filtered.duckdb", \
+     "--history", "/tmp/alerts.duckdb", \
      "--host", "0.0.0.0", \
      "--port", "8000"]
