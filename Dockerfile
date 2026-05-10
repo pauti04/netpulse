@@ -42,6 +42,11 @@ COPY src ./src
 COPY data/fixtures ./data/fixtures
 COPY data/baselines ./data/baselines
 
+# Files copied by COPY are owned by root; the netpulse user (used to run
+# the service) needs read+write on the DuckDB files because duckdb.connect
+# opens them read-write by default and would fail on a read-only fs entry.
+RUN chown -R netpulse:netpulse /app/data
+
 USER netpulse
 EXPOSE 8000
 
