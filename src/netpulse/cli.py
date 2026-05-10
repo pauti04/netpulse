@@ -125,6 +125,34 @@ def ingest_bgp(
     console.log(f"Wrote {count} BGP records.")
 
 
+@ingest_app.command("asrel")
+def ingest_asrel(
+    out: Annotated[
+        Path,
+        typer.Option("--out", help="Path to the AS-relationships DuckDB store."),
+    ],
+    source: Annotated[
+        str | None,
+        typer.Option(
+            "--source",
+            help="CAIDA serial-2 URL. Defaults to the current month's snapshot.",
+        ),
+    ] = None,
+) -> None:
+    """Pull CAIDA serial-2 inferred AS relationships into a DuckDB store."""
+    from netpulse.ingest.asrel import pull_caida_relationships
+    from netpulse.storage.asrel_store import ASRelStore
+
+    out.parent.mkdir(parents=True, exist_ok=True)
+    console.log(f"Pulling AS relationships from CAIDA -> {out}")
+    store = ASRelStore(out)
+    try:
+        n = pull_caida_relationships(store, source_url=source)
+    finally:
+        store.close()
+    console.log(f"Wrote {n} AS relationships.")
+
+
 @ingest_app.command("rpki")
 def ingest_rpki(
     out: Annotated[
