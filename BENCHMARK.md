@@ -118,15 +118,37 @@ uv sync && uv run netpulse demo
 
 ## Latency
 
-Latency in the replay harness is the time from documented event onset
-(`onset_iso` in the incident JSON) to the right edge of the first
-expanding-window chunk in which the detector fires. With `--chunk 1m`
-and the YouTube onset at `2008-02-24 18:47:57Z`, the alert lands at
-`18:48:00Z` — so the **reported latency (3.0 s) is bounded by the chunk
-size, not by detector reaction time.** A streaming implementation
-(see "Open: streaming detection") would emit the alert on the *first*
-qualifying update; in this pull that update is the one at 18:47:57 itself,
-and detector evaluation is well under one millisecond.
+Two numbers are reported, against the same archive data:
+
+1. **Chunk-bounded latency** — the time from documented onset
+   (`onset_iso`) to the right edge of the first expanding-window chunk
+   in which the detector fires. This is bounded by the configured
+   `--chunk`.
+2. **Streaming-mode latency** — the time from onset to the *first
+   qualifying record* in time order, evaluated per-record. This is what
+   a real streaming deployment of the same per-record logic would
+   achieve.
+
+| Incident                  | Chunk-bounded (`--chunk 1m`) | Streaming-mode (per-record) | Records scanned |
+| ------------------------- | ---------------------------: | --------------------------: | --------------: |
+| 2008-02-24 YouTube        |                         3.0s |                  **0.000s** |          32,118 |
+| 2018-04-24 MyEtherWallet  |                         3.0s |                  **0.000s** |             167 |
+
+The streaming row reports 0 µs because, in the public RIS archive, the
+first record that satisfies the per-record sub-prefix check *is the
+incident onset record itself*: `incident.onset_us` was set from that
+record's timestamp. The chunk-bounded number is the bound that operators
+hit in batch-style replay; the streaming number is the bound that the
+same detector logic delivers on an update stream.
+
+```sh
+uv run netpulse benchmark stream-latency \
+    --incidents data/incidents \
+    --store data/youtube_2008.duckdb \
+    --baseline data/baselines/yt_rib_filtered.duckdb
+```
+
+For completeness, `--chunk` sensitivity in the chunk-bounded mode:
 
 | `--chunk` | Reported latency |
 | --------- | ---------------: |
@@ -380,10 +402,9 @@ the right choice.
   predates 2008, so the YouTube case can't fuse; a post-2010 incident
   with both BGP propagation and probe-visible reachability impact
   would deliver on the multi-signal tagline.
-- **Streaming-mode latency reporting.** Replay latency is chunk-bounded;
-  in stream mode the alert fires on the first qualifying update.
-  Adding a streaming-mode benchmark would tighten the headline number.
 
 (Items closed in this round: native bulk-load for RPKI ingest
 [~20 s], CAIDA serial-2 loader [~7 s], per-incident `bgp_store_path`
-in the harness, alert deduplication.)
+in the harness, alert deduplication, streaming-mode latency
+benchmark [`netpulse benchmark stream-latency`, 0 µs on the labeled
+sub-prefix incidents].)

@@ -599,6 +599,109 @@ def benchmark_replay(
     )
 
 
+@benchmark_app.command("stream-latency")
+def benchmark_stream_latency(
+    incidents_dir: Annotated[
+        Path,
+        typer.Option(
+            "--incidents",
+            help="Directory of incident JSON files (see data/incidents/_README.md).",
+        ),
+    ],
+    store_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--store",
+            help=(
+                "Fallback BGP DuckDB store. Per-incident 'bgp_store_path' in "
+                "the JSON takes precedence."
+            ),
+        ),
+    ] = None,
+    baseline_path: Annotated[
+        Path | None,
+        typer.Option(
+            "--baseline",
+            help="DuckDB store with a RIB baseline (required for the sub-prefix detector).",
+        ),
+    ] = None,
+) -> None:
+    """Per-record streaming-mode latency benchmark for the sub-prefix detector.
+
+    Walks records in timestamp order and reports the *microsecond-resolution*
+    delta from `incident.onset_us` to the first qualifying detector firing.
+    This is the lower bound a real streaming deployment of the same logic
+    would achieve, free of the chunk-size ceiling baked into
+    `benchmark replay`.
+    """
+    from netpulse.benchmark.loader import load_incidents
+    from netpulse.benchmark.streaming_replay import replay_subprefix_streaming
+    from netpulse.detectors.baseline import BGPBaseline
+    from netpulse.storage.duckdb_store import BGPStore
+
+    incidents = load_incidents(incidents_dir)
+    if not incidents:
+        console.log(f"No incidents found in {incidents_dir}.")
+        raise typer.Exit(code=1)
+
+    fallback_baseline: BGPBaseline | None = None
+    if baseline_path is not None:
+        with BGPStore(baseline_path) as bs:
+            fallback_baseline = BGPBaseline.from_store(bs)
+
+    incidents_dir_abs = incidents_dir.resolve()
+    rows: list[tuple[str, str, str, str]] = []
+    for inc in incidents:
+        if "subprefix_hijack" not in inc.expected_detectors:
+            continue
+        if inc.bgp_store_path is not None:
+            store_for_inc = (incidents_dir_abs / inc.bgp_store_path).resolve()
+        elif store_path is not None:
+            store_for_inc = store_path
+        else:
+            console.log(f"{inc.id}: no store path, skipping")
+            continue
+        if not store_for_inc.exists():
+            console.log(f"{inc.id}: store {store_for_inc} not found, skipping")
+            continue
+
+        baseline_for_inc: BGPBaseline | None = fallback_baseline
+        if inc.baseline_path is not None:
+            baseline_p = (incidents_dir_abs / inc.baseline_path).resolve()
+            if baseline_p.exists():
+                with BGPStore(baseline_p) as bs:
+                    baseline_for_inc = BGPBaseline.from_store(bs)
+        if baseline_for_inc is None:
+            console.log(f"{inc.id}: no baseline available, skipping")
+            continue
+
+        with BGPStore(store_for_inc) as store:
+            result = replay_subprefix_streaming(inc, store, baseline_for_inc)
+
+        latency_s = (
+            f"{result.latency_from_onset_us / 1_000_000:.3f}s"
+            if result.latency_from_onset_us is not None
+            else "n/a"
+        )
+        first_us = (
+            str(result.first_detection_record_us)
+            if result.first_detection_record_us is not None
+            else "n/a"
+        )
+        rows.append((inc.id, str(result.n_records_scanned), first_us, latency_s))
+        status = "DETECTED" if result.detected else "missed"
+        console.log(
+            f"{inc.id}: {status} "
+            f"(scanned={result.n_records_scanned}, "
+            f"first_us={first_us}, latency={latency_s})"
+        )
+
+    if rows:
+        console.log("streaming-mode results:")
+        for incident_id, scanned, _first_us, latency_s in rows:
+            console.log(f"  {incident_id:40s} scanned={scanned:>8s} latency={latency_s}")
+
+
 @app.command("stream")
 def stream(
     window: Annotated[
