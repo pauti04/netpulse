@@ -405,9 +405,15 @@ def detect_atlas(
 
 @detect_app.command("bgp")
 def detect_bgp(
-    in_path: Annotated[
-        Path,
-        typer.Option("--in", help="Path to the BGP DuckDB store."),
+    in_paths: Annotated[
+        list[Path],
+        typer.Option(
+            "--in",
+            help=(
+                "Path to a BGP DuckDB store. May be repeated to union evidence "
+                "across multiple collectors (e.g. `--in rrc00.db --in rrc14.db`)."
+            ),
+        ),
     ],
     start: Annotated[
         str,
@@ -432,7 +438,13 @@ def detect_bgp(
         ),
     ] = None,
 ) -> None:
-    """Run BGP detectors over a window of stored data and print alerts."""
+    """Run BGP detectors over a window of stored data and print alerts.
+
+    With a single ``--in`` this reads that store directly. With multiple
+    ``--in`` flags it unions all stores via a read-only DuckDB ATTACH and
+    runs the detectors over the union — covers incidents that are visible
+    at only a subset of collectors (e.g. the 2024-06-27 Cloudflare event).
+    """
     from netpulse.alerts.publishers import StdoutPublisher
     from netpulse.detectors.base import DetectorBase
     from netpulse.detectors.baseline import BGPBaseline
@@ -440,15 +452,22 @@ def detect_bgp(
     from netpulse.detectors.subprefix import SubPrefixHijackDetector
     from netpulse.features.bgp import BGPWindowFeatures, extract_bgp_features
     from netpulse.storage.duckdb_store import BGPStore
+    from netpulse.storage.multi_store import MultiStoreBGPView
 
     start_us = _parse_iso_to_us(start)
     end_us = start_us + _parse_duration_to_us(duration)
 
-    store = BGPStore(in_path)
-    try:
-        features = extract_bgp_features(store, start_us, end_us)
-    finally:
-        store.close()
+    if not in_paths:
+        raise typer.BadParameter("at least one --in path is required")
+
+    if len(in_paths) == 1:
+        with BGPStore(in_paths[0]) as store:
+            features = extract_bgp_features(store, start_us, end_us)
+    else:
+        with MultiStoreBGPView(in_paths) as view:
+            for alias, path, n in view.count_by_source():
+                console.log(f"{alias}: {Path(path).name} ({n} records)")
+            features = extract_bgp_features(view, start_us, end_us)  # type: ignore[arg-type]
 
     from netpulse.detectors.withdraw_spike import WithdrawSpikeDetector
 

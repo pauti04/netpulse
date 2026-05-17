@@ -281,9 +281,28 @@ hijack onset finishes in ~3.6 s and shows AS17557 announcing the
 hijacked `/24` — independent confirmation of the same event from a
 different peer set than the one used in the rest of this benchmark.
 
-Cross-collector aggregation (running detectors over a UNION of
-multiple stores) is mechanical from here — pull each collector into
-its own DuckDB, then a single SQL UNION at feature-extraction time.
+### Cross-collector aggregation
+
+`netpulse detect bgp` accepts `--in` repeatedly. Multiple stores are
+attached read-only and exposed through a single `bgp_records` view via
+`UNION ALL`, so features and detectors see the union of evidence at
+zero copy:
+
+```sh
+uv run netpulse detect bgp \
+    --in data/rrc00.duckdb \
+    --in data/rrc14.duckdb \
+    --in data/routeviews2.duckdb \
+    --start 2024-06-27T18:50:00 --duration 20m \
+    --baseline data/baselines/cloudflare_rib.duckdb
+```
+
+The detect surface prints a per-source breakdown before scoring so it's
+obvious which collector contributed which fraction of the records. The
+implementation lives in `src/netpulse/storage/multi_store.py`
+(`MultiStoreBGPView`); MOAS counts are not inflated because feature
+extraction's `GROUP BY prefix, origin_as` collapses identical
+observations across collectors.
 
 ## Faster ingest with libBGPStream filters
 
@@ -393,10 +412,6 @@ the right choice.
   (sub-prefix hijack), 2010-04 China Telecom, 2017 Google→NTT (a
   different leak), 2019 Verizon→CenturyLink+Cloudflare. Each is
   research, not code.
-- **Cross-collector evidence aggregation.** The Cloudflare/2024
-  finding makes RouteViews integration concrete — a single-collector
-  view systematically misses incidents that get filtered before
-  reaching that collector's peers.
 - **Multi-signal fusion against an actual incident.** Atlas + BGP
   signals exist but never co-fire on the same incident. Atlas
   predates 2008, so the YouTube case can't fuse; a post-2010 incident
@@ -407,4 +422,5 @@ the right choice.
 [~20 s], CAIDA serial-2 loader [~7 s], per-incident `bgp_store_path`
 in the harness, alert deduplication, streaming-mode latency
 benchmark [`netpulse benchmark stream-latency`, 0 µs on the labeled
-sub-prefix incidents].)
+sub-prefix incidents], cross-collector aggregation [repeatable `--in`
+flag on `detect bgp`, read-only DuckDB ATTACH + UNION ALL view].)
