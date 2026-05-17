@@ -1,4 +1,4 @@
-.PHONY: install lint test ci demo charts clean
+.PHONY: install lint test ci demo charts tapes clean
 
 install:
 	uv sync
@@ -26,6 +26,12 @@ charts:
 	uv run python scripts/plot_fpr_bars.py
 	uv run python scripts/run_corpus_benchmark.py
 	uv run python scripts/plot_corpus_matrix.py
+
+# Re-render terminal-tour GIFs from docs/tapes/*.tape. Requires charmbracelet/vhs.
+tapes:
+	vhs docs/tapes/demo.tape
+	vhs docs/tapes/stream.tape
+	vhs docs/tapes/tour.tape
 
 clean:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache build dist *.egg-info
