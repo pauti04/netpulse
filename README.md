@@ -89,11 +89,12 @@ query produces 0 alerts on this 2018 incident.
 
 Pulls BGP updates from RIPE RIS or RouteViews, normalizes them into a
 DuckDB single-file store, and runs detectors over rolling windows.
-Seven detectors covering MOAS, sub-prefix hijack (RFC 6811-style
+Eight detectors covering MOAS, sub-prefix hijack (RFC 6811-style
 supernet check), withdraw-spike, RPKI Origin Validation (RFC 6811),
-route-leak (RFC 7908 valley-free), customer-cone-aware route-leak, and
-Atlas loss spike. Plus a correlator that fuses BGP + Atlas alerts on
-time windows.
+route-leak (RFC 7908 valley-free), customer-cone-aware route-leak,
+Atlas loss spike, and DNS reachability (active probes via
+`dnspython`). Plus a three-axis correlator that fuses BGP + Atlas RTT
++ DNS failures on the same time window.
 
 ## Try it now
 
@@ -185,8 +186,10 @@ Plus:
   detector fires (1,985 alerts on the actual leak shape using
   time-aligned CAIDA serial-2 data) at the same time as RIPE Atlas
   median RTT to 8.8.8.8 jumps **1.31× above baseline** (38.0 ms → 49.9
-  ms). `MultiSignalCorrelator` binds them into one critical alert.
-  Reproducible: [`scripts/fusion_demo.py`](scripts/fusion_demo.py).
+  ms). `MultiSignalCorrelator` binds them into one critical alert,
+  with an optional third axis for DNS-reachability alerts on the same
+  window (`netpulse ingest dns` + `netpulse detect dns`). Reproducible:
+  [`scripts/fusion_demo.py`](scripts/fusion_demo.py).
 - **RPKI Origin Validation** (RFC 6811) — `netpulse ingest rpki` pulls
   Cloudflare's published rpki.json (**859k VRPs in ~20 s** via
   DuckDB-native bulk load) and the validator gives the standard

@@ -76,3 +76,46 @@ def test_fusion_silent_for_zero_baseline() -> None:
         )
         == []
     )
+
+
+def _dns_alert(hostname: str = "example.com") -> Alert:
+    return Alert(
+        timestamp_us=1_700_000_000_000_000,
+        detector="dns_failure_rate",
+        severity="critical",
+        entity=hostname,
+        summary="x",
+        window_start_us=0,
+        window_end_us=1_700_000_000_000_000,
+    )
+
+
+def test_fusion_annotates_evidence_when_dns_alerts_present() -> None:
+    c = MultiSignalCorrelator(rtt_jump_factor=1.15)
+    out = c.fuse(
+        bgp_alerts=[_bgp_alert()],
+        window_start_us=0,
+        window_end_us=100,
+        atlas_baseline_median_rtt_ms=40.0,
+        atlas_window_median_rtt_ms=80.0,
+        dns_alerts=[_dns_alert("a.example"), _dns_alert("b.example")],
+    )
+    assert len(out) == 1
+    assert out[0].evidence["n_dns_alerts"] == 2
+    assert out[0].evidence["dns_failure_hostnames"] == ["a.example", "b.example"]
+    assert "DNS-failure" in out[0].summary
+
+
+def test_fusion_still_fires_without_dns_alerts() -> None:
+    # Backward-compat: existing two-axis callers still produce alerts.
+    c = MultiSignalCorrelator(rtt_jump_factor=1.15)
+    out = c.fuse(
+        bgp_alerts=[_bgp_alert()],
+        window_start_us=0,
+        window_end_us=100,
+        atlas_baseline_median_rtt_ms=40.0,
+        atlas_window_median_rtt_ms=80.0,
+    )
+    assert len(out) == 1
+    assert out[0].evidence["n_dns_alerts"] == 0
+    assert out[0].evidence["dns_failure_hostnames"] == []

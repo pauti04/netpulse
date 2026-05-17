@@ -62,7 +62,7 @@ ingest -> storage -> features -> detectors -> alerts -> (publishers | api | benc
   detectors can see evidence from multiple collectors at zero copy.
 - **Features.** Stateless extraction over a half-open `[start_us, end_us)`
   window: per-prefix origin sets, announce/withdraw counts.
-- **Detectors.** Six total today:
+- **Detectors.** Seven total today:
   - `moas`: any multi-origin prefix in the window.
   - `subprefix_hijack`: a more-specific (or exact prefix) announced from
     an origin not authorized for the covering supernet.
@@ -78,6 +78,11 @@ ingest -> storage -> features -> detectors -> alerts -> (publishers | api | benc
     inference is sparse — see §4.1.
   - `rpki_invalid`: RFC 6811 origin validation against a VRP set,
     using longest-prefix-match (~43 µs/call against 859k VRPs).
+  - `dns_failure_rate`: active DNS probing via ``dnspython`` against
+    configured (hostname, resolver) pairs, scored as per-hostname
+    failure rate over a time window. Independent of any external API
+    surface; the probe loop writes records that look like any other
+    NetPulse signal.
 - **Alerts.** `Alert` dataclass with stdout/JSON/history publishers
   and cooldown-based deduplication.
 - **Benchmark.** Replay harness with two latency reporting modes
@@ -309,6 +314,12 @@ Fusion (rtt_jump_factor = 1.15x):
   FUSED ALERTS:                            1
 ```
 
+The correlator accepts an optional third axis: DNS-failure alerts in
+the same window from the active DNS probe loop. When provided, the
+fused alert's evidence is annotated with the DNS-failure hostnames;
+absence of DNS alerts does not suppress the fusion (BGP + Atlas alone
+still fires).
+
 Reproducible end-to-end with `scripts/fusion_demo.py`. The leak detector
 requires the *time-aligned* CAIDA snapshot (`20181101.as-rel2`); the
 current snapshot has too much temporal drift and emits only generic
@@ -375,17 +386,22 @@ corpus would be a paper of its own — see §8.
    The Cloudflare 2024 case was investigated and excluded from the
    labeled corpus because it never appeared at any RIS collector
    we checked.
-5. **No DNS signal yet.** The fusion framing currently uses two
-   signals (BGP and Atlas); the planned DNS axis (reachability checks
-   from Atlas DNS measurements) is unimplemented.
+5. **DNS axis is live but not exercised on the labeled corpus.** The
+   DNS detector and the third correlator axis are implemented and
+   tested end-to-end against real resolvers; no labeled corpus
+   incident has co-occurring DNS-probe evidence yet, so the fused
+   three-axis result is currently only demonstrable on live probing.
 
 ## 9. Future work
 
 In rough priority order:
 
-1. **DNS as a third fusion axis.** Atlas DNS measurements give a third
-   independent signal that should co-fire on outages but not on pure
-   route hijacks (which mostly preserve DNS reachability).
+1. **DNS-on-an-incident replay.** The DNS reachability signal is
+   wired into the correlator but no labeled corpus incident has
+   co-occurring DNS evidence yet — Atlas DNS measurements at the time
+   of the documented incidents would close that loop and let the
+   three-axis fusion fire on a real archive case rather than only on
+   live probing.
 2. **Customer-cone provenance audit.** The cone detector relies on
    transitive `p2c` BFS from CAIDA serial-2; an operator-grade
    deployment should be able to print the provenance chain for each

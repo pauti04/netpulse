@@ -46,9 +46,7 @@ from netpulse.detectors.route_leak import ObservedPath
 StepShape = Literal["downhill", "uphill"]
 
 
-def classify_path(
-    path: Sequence[int], cones: CustomerConeMap
-) -> tuple[bool, list[StepShape]]:
+def classify_path(path: Sequence[int], cones: CustomerConeMap) -> tuple[bool, list[StepShape]]:
     """Return ``(is_leak, per-step shapes)`` using customer-cone direction.
 
     A step ``a -> b`` is *downhill* if ``b`` is in the transitive

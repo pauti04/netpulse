@@ -56,8 +56,7 @@ class MultiStoreBGPView:
             self._sources.append((alias, path))
 
         union_sql = " UNION ALL ".join(
-            f"SELECT '{alias}' AS _source, * FROM {alias}.bgp_records"
-            for alias, _ in self._sources
+            f"SELECT '{alias}' AS _source, * FROM {alias}.bgp_records" for alias, _ in self._sources
         )
         self._conn.execute(f"CREATE VIEW bgp_records AS {union_sql}")
 
@@ -82,9 +81,7 @@ class MultiStoreBGPView:
         """Per-source row counts. Returns ``[(alias, path, n_records), ...]``."""
         out: list[tuple[str, str, int]] = []
         for alias, path in self._sources:
-            row = self._conn.execute(
-                f"SELECT COUNT(*) FROM {alias}.bgp_records"
-            ).fetchone()
+            row = self._conn.execute(f"SELECT COUNT(*) FROM {alias}.bgp_records").fetchone()
             n = 0 if row is None else int(row[0])
             out.append((alias, str(path), n))
         return out

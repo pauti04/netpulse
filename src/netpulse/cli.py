@@ -181,6 +181,124 @@ def ingest_rpki(
     console.log(f"Wrote {n} RPKI VRPs.")
 
 
+@ingest_app.command("dns")
+def ingest_dns(
+    out: Annotated[
+        Path,
+        typer.Option("--out", help="Path to the DNS probe DuckDB store."),
+    ],
+    hostnames: Annotated[
+        str,
+        typer.Option(
+            "--hostnames",
+            help="Comma-separated list of hostnames to query.",
+        ),
+    ],
+    resolvers: Annotated[
+        str,
+        typer.Option(
+            "--resolvers",
+            help="Comma-separated list of resolver IPs.",
+        ),
+    ] = "1.1.1.1,8.8.8.8",
+    interval: Annotated[
+        str,
+        typer.Option("--interval", help="Seconds between probe rounds: '5s', '1m', etc."),
+    ] = "60s",
+    duration: Annotated[
+        str,
+        typer.Option("--duration", help="Total probing duration: '5m', '1h', etc."),
+    ] = "5m",
+    qtype: Annotated[
+        str,
+        typer.Option("--qtype", help="DNS query type."),
+    ] = "A",
+    timeout: Annotated[
+        float,
+        typer.Option("--timeout", help="Per-query timeout in seconds."),
+    ] = 2.0,
+) -> None:
+    """Run an active DNS probe loop and store the results.
+
+    Queries each (hostname, resolver) pair every ``--interval`` for the
+    configured ``--duration``, then exits. Records carry success / error
+    / response-time so the detector can score failure-rate jumps later.
+    """
+    from netpulse.ingest.dns import run_probe_loop
+    from netpulse.storage.dns_store import DNSProbeStore
+
+    host_list = [h.strip() for h in hostnames.split(",") if h.strip()]
+    resolver_list = [r.strip() for r in resolvers.split(",") if r.strip()]
+    if not host_list or not resolver_list:
+        raise typer.BadParameter("at least one hostname and one resolver are required")
+
+    interval_s = _parse_duration_to_us(interval) / 1_000_000
+    duration_s = _parse_duration_to_us(duration) / 1_000_000
+
+    out.parent.mkdir(parents=True, exist_ok=True)
+    console.log(
+        f"DNS probes -> {out}  "
+        f"hostnames={len(host_list)} resolvers={len(resolver_list)} "
+        f"interval={interval} duration={duration}"
+    )
+    with DNSProbeStore(out) as store:
+        n = run_probe_loop(
+            store,
+            hostnames=host_list,
+            resolvers=resolver_list,
+            interval_s=interval_s,
+            duration_s=duration_s,
+            qtype=qtype,
+            timeout_s=timeout,
+        )
+    console.log(f"Wrote {n} DNS probe records.")
+
+
+@detect_app.command("dns")
+def detect_dns(
+    in_path: Annotated[
+        Path,
+        typer.Option("--in", help="Path to the DNS probe DuckDB store."),
+    ],
+    start: Annotated[
+        str,
+        typer.Option("--start", help="ISO-8601 window start, UTC if no offset."),
+    ],
+    duration: Annotated[
+        str,
+        typer.Option("--duration", help="Window length: '5m', '1h', etc."),
+    ] = "5m",
+    failure_rate: Annotated[
+        float,
+        typer.Option("--failure-rate", help="Per-hostname failure-rate threshold (0..1)."),
+    ] = 0.5,
+    min_probes: Annotated[
+        int,
+        typer.Option("--min-probes", help="Minimum probes per hostname to evaluate."),
+    ] = 4,
+) -> None:
+    """Run the DNS reachability detector over stored probe results."""
+    from netpulse.alerts.publishers import StdoutPublisher
+    from netpulse.detectors.dns_failure import DNSFailureRateDetector
+    from netpulse.features.dns import extract_dns_features
+    from netpulse.storage.dns_store import DNSProbeStore
+
+    start_us = _parse_iso_to_us(start)
+    end_us = start_us + _parse_duration_to_us(duration)
+
+    with DNSProbeStore(in_path) as store:
+        feats = extract_dns_features(store, start_us, end_us)
+
+    detector = DNSFailureRateDetector(failure_rate_threshold=failure_rate, min_probes=min_probes)
+    publisher = StdoutPublisher(console=console)
+    n = publisher.publish_all(detector.score(feats))
+    console.log(
+        f"window={start_us}-{end_us} n_total={feats.n_total} "
+        f"n_failure={feats.n_failure} "
+        f"failure_rate={feats.overall_failure_rate:.2%} alerts={n}"
+    )
+
+
 @detect_app.command("leak")
 def detect_leak(
     in_path: Annotated[

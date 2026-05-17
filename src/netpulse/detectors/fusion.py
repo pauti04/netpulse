@@ -40,12 +40,19 @@ class MultiSignalCorrelator:
         atlas_window_median_rtt_ms: float,
         atlas_msm_id: int | None = None,
         atlas_target: str | None = None,
+        dns_alerts: Sequence[Alert] | None = None,
     ) -> list[Alert]:
         """Return a fused alert list (0 or 1 Alert) for one window.
 
         Returns empty if no BGP alerts fired, if the baseline RTT is
         non-positive (no comparison possible), or if the window RTT is
         not elevated above the baseline by ``rtt_jump_factor``.
+
+        ``dns_alerts`` is the optional third axis. When provided and
+        non-empty, the fused alert's severity is *escalated* to critical
+        and the evidence is annotated with the DNS-failure hostnames
+        observed in the same window. Absence of DNS alerts does not
+        suppress the fusion — BGP + Atlas alone still fires.
         """
         if not bgp_alerts:
             return []
@@ -56,6 +63,15 @@ class MultiSignalCorrelator:
             return []
 
         bgp_detectors = sorted({a.detector for a in bgp_alerts})
+        dns_alerts = dns_alerts or []
+        dns_hostnames = sorted({a.entity for a in dns_alerts})
+
+        summary_tail = ""
+        if dns_hostnames:
+            summary_tail = (
+                f"; also {len(dns_alerts)} DNS-failure alert(s) on {len(dns_hostnames)} hostname(s)"
+            )
+
         return [
             Alert(
                 timestamp_us=window_end_us,
@@ -67,6 +83,7 @@ class MultiSignalCorrelator:
                     f"{bgp_detectors}) co-occurred with Atlas median-RTT "
                     f"jump from {atlas_baseline_median_rtt_ms:.1f}ms to "
                     f"{atlas_window_median_rtt_ms:.1f}ms ({ratio:.2f}x)"
+                    f"{summary_tail}"
                 ),
                 window_start_us=window_start_us,
                 window_end_us=window_end_us,
@@ -79,6 +96,8 @@ class MultiSignalCorrelator:
                     "atlas_window_median_rtt_ms": atlas_window_median_rtt_ms,
                     "rtt_jump_factor": ratio,
                     "rtt_threshold_factor": self.rtt_jump_factor,
+                    "n_dns_alerts": len(dns_alerts),
+                    "dns_failure_hostnames": dns_hostnames,
                 },
             )
         ]
