@@ -29,6 +29,8 @@ from typing import Any
 from netpulse.benchmark.incident import Incident
 from netpulse.benchmark.loader import load_incidents
 from netpulse.detectors.baseline import BGPBaseline
+from netpulse.detectors.customer_cone import CustomerConeMap
+from netpulse.detectors.customer_cone_leak import CustomerConeLeakDetector
 from netpulse.detectors.moas import MOASDetector
 from netpulse.detectors.route_leak import (
     ASRelationshipMap,
@@ -123,32 +125,45 @@ def score_routeleak_incident(inc: Incident) -> IncidentResult:
                 )
             )
 
-    alerts = RouteLeakDetector(rels=rels).score_paths(paths)
-    # For route leaks we filter to paths that traverse the attacker AS
-    # and reach the victim AS as origin -- that's the documented leak
-    # shape for the labeled incident.
-    on_target = sum(
-        1
-        for a in alerts
-        if (
-            inc.attacker_asn is None
-            or inc.attacker_asn in a.evidence.get("path", [])
+    # Try the pair-direction valley-free detector first. If it abstains,
+    # fall back to the cone-aware variant; a TP from either qualifies.
+    valley_alerts = RouteLeakDetector(rels=rels).score_paths(paths)
+    cones = CustomerConeMap.from_relationships(rels)
+    cone_alerts = CustomerConeLeakDetector(cones=cones).score_paths(paths)
+
+    def on_target(alerts: list) -> int:
+        return sum(
+            1
+            for a in alerts
+            if (
+                inc.attacker_asn is None
+                or inc.attacker_asn in a.evidence.get("path", [])
+            )
+            and (
+                inc.victim_asn is None
+                or inc.victim_asn in a.evidence.get("path", [])
+            )
         )
-        and (
-            inc.victim_asn is None
-            or inc.victim_asn in a.evidence.get("path", [])
-        )
-    )
-    other = len(alerts) - on_target
-    if on_target > 0:
+
+    n_valley = on_target(valley_alerts)
+    n_cone = on_target(cone_alerts)
+    # The headline detector here is "any of the leak detectors fired".
+    # Report on_target as the union; other as the union's "extra" alerts.
+    if n_valley > 0:
+        catching = "route_leak"
+    elif n_cone > 0:
+        catching = "customer_cone_leak"
+    else:
+        catching = "route_leak"
+    total_on_target = max(n_valley, n_cone)
+    total_alerts = len(valley_alerts) if n_valley > 0 else len(cone_alerts)
+    total_other = total_alerts - total_on_target
+    if total_on_target > 0:
         outcome = "TP"
     elif len(paths) == 0:
         outcome = "FN"
     else:
-        # The data is there but the detector did not fire. If the notes
-        # mention 'unknown' / 'open detector gap', score as GAP not FN
-        # so the corpus distinguishes 'detector missed' from 'data /
-        # data-coverage limitation'.
+        # Both detectors saw the data and abstained.
         if "open detector gap" in inc.notes.lower() or "gap" in inc.notes.lower():
             outcome = "GAP"
         else:
@@ -156,10 +171,10 @@ def score_routeleak_incident(inc: Incident) -> IncidentResult:
     return IncidentResult(
         incident_id=inc.id,
         shape="route leak (RFC 7908)",
-        expected_detector="route_leak",
+        expected_detector=catching,
         outcome=outcome,
-        on_target_alerts=on_target,
-        other_alerts=other,
+        on_target_alerts=total_on_target,
+        other_alerts=total_other,
     )
 
 

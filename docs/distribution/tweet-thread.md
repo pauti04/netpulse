@@ -11,7 +11,7 @@ methodology, lands on the live deployment.
 I shipped NetPulse — an open BGP anomaly detector evaluated against a
 reproducible benchmark of labeled historical incidents.
 
-3 / 4 detected. 1 honest GAP. 0 FN. Streaming-mode latency 0 µs on
+4 / 4 detected. 0 GAP. 0 FN. Streaming-mode latency 0 µs on
 the labeled sub-prefix hijacks.
 
 GitHub: https://github.com/pauti04/netpulse
@@ -29,8 +29,16 @@ in the repo.
 
 The corpus is 4 incidents from primary sources only — RIPE NCC,
 Cloudflare, BGPmon, ISC. The repo has a HARD rule against fabricated
-incident data. If a detector misses for the wrong reason, that's
-labeled GAP (missing input), not FN (algorithm failure).
+incident data. Methodology has 3 buckets (TP / FN / GAP) so a missing
+*input* isn't labeled as an algorithm miss.
+
+**3a/**
+
+The Google 2017 leak is the worked example for *why* methodology
+matters. Standard valley-free check abstains because CAIDA 2017-08
+has the AS15169↔AS4713 pair as `unknown`. Customer-cone-aware variant
+catches it: NTT OCN is not in Google's 2017 cone (10 ASes). 123,749
+alerts.
 
 **4/**
 

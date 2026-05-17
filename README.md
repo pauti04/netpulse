@@ -36,17 +36,19 @@ over a 51k-announce / 7.7k-prefix BGP window ≈ 39 ms.
 
 ![netpulse stream](docs/img/stream.gif)
 
-## Headline: 4 labeled incidents · 0 µs streaming latency on sub-prefix hijacks
+## Headline: 4 / 4 incidents detected · 0 µs streaming latency on sub-prefix hijacks
 
 ![Per-incident detector outcomes across the labeled corpus](docs/img/corpus_matrix.svg)
 
 Four labeled BGP incidents drawn from primary sources (RIPE NCC,
-Cloudflare, ISC, BGPmon). The expected detector fires on **3 / 4**;
-the fourth is an honest `GAP` — the CAIDA 2017-08 inferred-relationships
-snapshot is missing the AS15169 ↔ AS4713 pair the leak detector would
-need, and the detector abstains rather than guessing. No false negatives
-on the algorithm itself. The full per-incident outcome table and the
-methodology behind the `TP / FN / GAP` columns are in
+Cloudflare, ISC, BGPmon). The expected detector fires on **4 / 4**.
+The Google 2017 leak — previously reported as a `GAP` because the
+pair-direction valley-free check abstained on the AS15169↔AS4713 step
+— is now caught by the **customer-cone-aware** leak detector
+(`customer_cone_leak`): 4713 (NTT OCN) is not in cone(15169) (Google's
+2017 cone has 10 ASes), so the path direction is not cone-monotone and
+the detector fires (123,749 on-target alerts). The full per-incident
+outcome table and the `TP / FN / GAP` methodology are in
 [`BENCHMARK.md`](BENCHMARK.md) and the working-note writeup at
 [`docs/paper.md`](docs/paper.md).
 
@@ -86,11 +88,12 @@ query produces 0 alerts on this 2018 incident.
 ## What it does
 
 Pulls BGP updates from RIPE RIS or RouteViews, normalizes them into a
-DuckDB single-file store, and runs detectors over rolling windows. Six
-detectors covering MOAS, sub-prefix hijack (RFC 6811-style supernet
-check), withdraw-spike, RPKI Origin Validation (RFC 6811), route-leak
-(RFC 7908 valley-free), and Atlas loss spike. Plus a correlator that
-fuses BGP + Atlas alerts on time windows.
+DuckDB single-file store, and runs detectors over rolling windows.
+Seven detectors covering MOAS, sub-prefix hijack (RFC 6811-style
+supernet check), withdraw-spike, RPKI Origin Validation (RFC 6811),
+route-leak (RFC 7908 valley-free), customer-cone-aware route-leak, and
+Atlas loss spike. Plus a correlator that fuses BGP + Atlas alerts on
+time windows.
 
 ## Try it now
 
@@ -163,9 +166,9 @@ RIPE RIS archive data:
 | 2008-02-24 YouTube / Pakistan     | sub-prefix hijack      |   TP    | `subprefix_hijack` |
 | 2018-04-24 MyEtherWallet          | sub-prefix hijack      |   TP    | `subprefix_hijack` |
 | 2018-11-12 MainOne → Google leak  | RFC 7908 Type-1 leak   |   TP    | `route_leak`       |
-| 2017-08-25 Google → Verizon → NTT | RFC 7908 Type-1 leak   |  GAP    | `route_leak` (CAIDA 2017-08 missing AS15169↔AS4713) |
+| 2017-08-25 Google → Verizon → NTT | RFC 7908 Type-1 leak   |   TP    | `customer_cone_leak` |
 
-MyEtherWallet: all five hijacked /24s flagged correctly (`205.251.192/193/195/197/199.0/24` from AS10297 vs Amazon AS16509's /23 supernets). Onset at RRC00: 2018-04-24 11:05:50 UTC. MainOne: 1,985 leak alerts on the actual AS37282→AS15169 path shape using time-aligned CAIDA serial-2 (20181101) data. Google/NTT 2017: detector abstains on the leaking AS pair because the time-aligned CAIDA snapshot doesn't infer a relationship — closing the gap is a snapshot-loader change, not an algorithm change. See [`docs/paper.md`](docs/paper.md) §3.2 for the `TP / FN / GAP` methodology.
+MyEtherWallet: all five hijacked /24s flagged correctly (`205.251.192/193/195/197/199.0/24` from AS10297 vs Amazon AS16509's /23 supernets). Onset at RRC00: 2018-04-24 11:05:50 UTC. MainOne: 1,985 leak alerts on the actual AS37282→AS15169 path shape using time-aligned CAIDA serial-2 (20181101) data. Google/NTT 2017: 123,749 leak alerts via the customer-cone-aware detector — the pair-direction valley-free check abstained, but Google's 2017-08 customer cone (10 ASes) provably does not contain NTT OCN, so the step 15169→4713 is "uphill" and the path is not cone-monotone. See [`docs/paper.md`](docs/paper.md) §3.2 for the `TP / FN / GAP` methodology.
 
 False-positive survey of the BGP hijack detector across **5 hours of
 real RRC00 data** (1 hijack hour + 4 background hours, 13,961 distinct

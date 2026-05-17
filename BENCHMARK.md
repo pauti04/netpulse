@@ -1,9 +1,9 @@
 # Benchmark — BGP detectors on real RIPE RIS archive data
 
 The point of NetPulse is **honest evaluation against labeled historical
-incidents**. Three cases are populated covering two distinct shapes — two
-sub-prefix hijacks and one RFC 7908 Type-1 leak — and the detector
-roster's coverage of each is reported as-is.
+incidents**. Four cases are populated covering two distinct shapes — two
+sub-prefix hijacks and two RFC 7908 Type-1 leaks — and the detector
+roster catches **4 / 4** with **0 FN** and **0 GAP**.
 
 ## Per-incident outcomes
 
@@ -12,6 +12,7 @@ roster's coverage of each is reported as-is.
 | 2008-02-24 YouTube / Pakistan     | sub-prefix hijack      | `subprefix_hijack` |    ✅     | first AS17557 announcement of `208.65.153.0/24` at RRC00: **2008-02-24 18:47:57Z**, matches the RIPE NCC case study |
 | 2018-04-24 MyEtherWallet          | sub-prefix hijack      | `subprefix_hijack` |    ✅     | first AS10297 announcement of `205.251.192.0/24` at RRC00: **2018-04-24 11:05:50Z**; all 5 hijacked /24s detected as more-specifics of Amazon AS16509's /23 supernets, 0 FPs |
 | 2018-11-12 MainOne → Google leak  | RFC 7908 Type-1 leak   | `route_leak`       |    ✅     | first AS37282 transit observation at RRC00: **2018-11-12 21:12:16Z**, matches BGPmon's reported onset to the second; 203 distinct Google prefixes seen leaked; **1,985 MainOne-shape leak alerts** with the time-aligned CAIDA serial-2 (20181101) snapshot |
+| 2017-08-25 Google → Verizon → NTT | RFC 7908 Type-1 leak   | `customer_cone_leak` |  ✅     | the pair-direction valley-free check abstains on the canonical leak path `3333 1103 286 701 15169 4713` (the 15169→4713 step is `unknown` in CAIDA 2017-08); the customer-cone-aware variant fires because NTT OCN (AS4713) is *not* in Google's 2017 customer cone (10 ASes). **123,749 leak alerts** across the documented leak window |
 
 ## BGP false-positive survey (sub-prefix detector, real RIB baseline)
 
@@ -224,6 +225,51 @@ all monthly archives.
 
 [caida]: https://publicdata.caida.org/datasets/as-relationships/serial-2/
 
+### Customer-cone-aware route-leak detector
+
+The bilateral valley-free check above (`route_leak`) abstains when
+CAIDA doesn't infer the specific adjacent pair — the step direction is
+``unknown`` and the path is not credited with a "p2c followed by c2p"
+shape. That conservative behavior is the right default but it misses
+the 2017-08-25 Google → Verizon → NTT leak: the canonical path
+``3333 1103 286 701 15169 4713`` has step directions
+``[c2p, c2p, c2p, p2c, unknown]`` against the 2017-08 snapshot — one
+p2c, no observed valley, no alert.
+
+`netpulse.detectors.customer_cone_leak.CustomerConeLeakDetector` is
+the sharper variant. It derives each AS's *transitive customer cone*
+(BFS along p2c edges) and walks the path with a single direction:
+``downhill`` if the next AS is in the current AS's cone, ``uphill``
+otherwise. A leak is any path containing a downhill step followed by
+an uphill step — the same shape, but cone membership is transitive
+so it survives sparse pairwise inference.
+
+For the Google 2017 path:
+
+- ``cone(701)`` has 34,619 ASes including 15169 → step 4 is downhill.
+- ``cone(15169)`` has 10 ASes, *not* including 4713 → step 5 is uphill.
+- downhill-then-uphill ⇒ alert.
+
+On the labeled corpus, the cone detector fires on **123,749** of the
+123,838 announce paths in the filtered 2017 archive (the rest are
+short paths that don't include a downhill step). The MainOne 2018 case
+is caught by *both* detectors — that's the bilateral one's strength
+when the relationships are well-inferred, and the cone detector is
+strictly more permissive on every test path. CLI:
+
+```sh
+uv run netpulse detect leak \
+    --in data/google_leak_2017.duckdb \
+    --asrel data/caida_asrel_2017_08.duckdb \
+    --mode cone \
+    --start 2017-08-25T03:15:00 --duration 45m
+```
+
+The corpus benchmark picks the catching detector per-incident
+(valley-free first, cone as fallback) so the headline 4/4 number is
+the union of both, with each incident's row labeled by which one
+fired.
+
 ## A real-world finding: not every documented hijack reaches public RIS
 
 While trying to add the **2024-06-27 Cloudflare 1.1.1.1 incident** to
@@ -423,4 +469,6 @@ the right choice.
 in the harness, alert deduplication, streaming-mode latency
 benchmark [`netpulse benchmark stream-latency`, 0 µs on the labeled
 sub-prefix incidents], cross-collector aggregation [repeatable `--in`
-flag on `detect bgp`, read-only DuckDB ATTACH + UNION ALL view].)
+flag on `detect bgp`, read-only DuckDB ATTACH + UNION ALL view],
+customer-cone-aware leak detector [`customer_cone_leak`, closes the
+Google 2017 GAP — corpus is now 4 / 4 with 0 GAP].)

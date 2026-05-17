@@ -202,9 +202,27 @@ def detect_leak(
         str,
         typer.Option("--duration", help="Window length: '5m', '1h', etc."),
     ] = "5m",
+    mode: Annotated[
+        str,
+        typer.Option(
+            "--mode",
+            help=(
+                "Detection mode: 'valley' (pairwise valley-free, default), "
+                "'cone' (customer-cone-aware), or 'both'."
+            ),
+        ),
+    ] = "valley",
 ) -> None:
-    """Run the route-leak (valley-free) detector over stored BGP records."""
+    """Run a route-leak detector over stored BGP records.
+
+    Two algorithms are available against the same input and AS-relationships
+    data: bilateral valley-free (RFC 7908 §3.1) and customer-cone-aware. The
+    cone variant catches paths the pair-direction check misses when adjacent
+    relationships are sparse; see ``docs/paper.md`` §7.
+    """
     from netpulse.alerts.publishers import StdoutPublisher
+    from netpulse.detectors.customer_cone import CustomerConeMap
+    from netpulse.detectors.customer_cone_leak import CustomerConeLeakDetector
     from netpulse.detectors.route_leak import (
         ASRelationshipMap,
         ObservedPath,
@@ -213,6 +231,9 @@ def detect_leak(
     )
     from netpulse.storage.asrel_store import ASRelStore
     from netpulse.storage.duckdb_store import BGPStore
+
+    if mode not in {"valley", "cone", "both"}:
+        raise typer.BadParameter("--mode must be 'valley', 'cone', or 'both'")
 
     start_us = _parse_iso_to_us(start)
     end_us = start_us + _parse_duration_to_us(duration)
@@ -255,10 +276,14 @@ def detect_leak(
         )
 
     publisher = StdoutPublisher(console=console)
-    alerts = RouteLeakDetector(rels=rels).score_paths(paths)
-    n = publisher.publish_all(alerts)
+    n = 0
+    if mode in {"valley", "both"}:
+        n += publisher.publish_all(RouteLeakDetector(rels=rels).score_paths(paths))
+    if mode in {"cone", "both"}:
+        cones = CustomerConeMap.from_relationships(rels)
+        n += publisher.publish_all(CustomerConeLeakDetector(cones=cones).score_paths(paths))
     console.log(
-        f"window={start_us}-{end_us} paths={len(paths)} "
+        f"window={start_us}-{end_us} paths={len(paths)} mode={mode} "
         f"unparseable={skipped_unparseable} leak_alerts={n}"
     )
 

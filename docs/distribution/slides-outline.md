@@ -9,7 +9,7 @@ expanded — the writeup at `docs/paper.md` is the long form.
 
 **NetPulse: an open, reproducible benchmark for BGP anomaly detection**
 
-- Sub: 4 incidents · 3 TP / 1 GAP / 0 FN · 0 µs streaming latency
+- Sub: 4 incidents · 4 TP / 0 GAP / 0 FN · 0 µs streaming latency
 - Sub: https://github.com/pauti04/netpulse
 
 ## 2. The problem
@@ -40,9 +40,10 @@ expanded — the writeup at `docs/paper.md` is the long form.
 ## 5. The corpus (show `docs/img/corpus_matrix.svg`)
 
 - 4 labeled incidents from primary sources.
-- 3 TP (YouTube 2008, MyEtherWallet 2018, MainOne 2018).
-- 1 GAP (Google 2017 — CAIDA snapshot missing AS pair; detector
-  abstains).
+- 4 TP: YouTube 2008, MyEtherWallet 2018, MainOne 2018, Google 2017.
+- The Google 2017 case was a GAP under the bilateral valley-free
+  check (CAIDA 2017-08 has the AS15169↔AS4713 pair as `unknown`);
+  caught by the customer-cone-aware variant — see slide 9.
 - No FN. No fabricated incidents.
 
 ## 6. Latency, honest version
@@ -68,14 +69,16 @@ expanded — the writeup at `docs/paper.md` is the long form.
 - Atlas: median RTT to 8.8.8.8 jumps 1.31× above baseline (38.0 → 49.9 ms).
 - Correlator → 1 fused critical alert. `scripts/fusion_demo.py`.
 
-## 9. Why CAIDA time-alignment matters
+## 9. Why valley-free vs. cone matters (Google 2017)
 
-- Same MainOne archive, two CAIDA snapshots:
-  - 2018-11 snapshot: 1,985 MainOne-shape alerts.
-  - Current snapshot: 0 MainOne-shape alerts.
-- Difference is temporal drift in the inferred relationships, not the
-  algorithm.
-- This is why the corpus has a `GAP` bucket: missing input ≠ failure.
+- Path: `3333 1103 286 701 15169 4713`.
+- Pair directions vs CAIDA 2017-08:
+  `[c2p, c2p, c2p, p2c, unknown]` → valley-free abstains.
+- Customer cones vs same data:
+  - cone(701) has 34,619 ASes, includes 15169 → step 4 downhill.
+  - cone(15169) has 10 ASes, excludes 4713 → step 5 uphill.
+- Downhill-then-uphill ⇒ alert. **123,749** alerts on the documented
+  leak window. The corpus has 0 GAP today as a result.
 
 ## 10. Production surface (show curl + json)
 
@@ -96,8 +99,9 @@ expanded — the writeup at `docs/paper.md` is the long form.
 
 ## 12. Roadmap
 
-- Time-aligned CAIDA loader (closes the Google 2017 GAP).
 - DNS as the third fusion axis (Atlas DNS measurements).
+- Customer-cone provenance audit (print the actual customer chain
+  that motivates a cone-monotone violation).
 - Side-by-side benchmark with ARTEMIS on the same corpus.
 - Same numbers. Same baselines. Same table.
 
@@ -112,12 +116,24 @@ expanded — the writeup at `docs/paper.md` is the long form.
 
 ### Speaker notes — anticipated Q&A
 
-**Q: Why call it `GAP` instead of `FN`?**
-A: An FN credits the algorithm with a miss it didn't make. The Google
-2017 detector code is the same code that fires on MainOne 2018. What
-differs is a single relationship in the CAIDA snapshot. Folding that
-into FN overclaims the failure as algorithmic and lets the actual
-issue (snapshot temporal drift) hide.
+**Q: Why three buckets (TP / FN / GAP) when the current corpus has
+no GAP?**
+A: The bucket exists because not every miss is the same kind of
+miss. A future incident could land in GAP if it depends on a data
+source we can't recover (e.g. a hijack that never reached any public
+collector — see the 2024 Cloudflare case explicitly excluded from the
+labeled corpus for that reason). Keeping GAP separate from FN lets
+the corpus distinguish "the algorithm missed" from "no detector with
+this input class could possibly catch this". The Google 2017 case
+*was* a GAP under valley-free; it became a TP under the cone variant.
+
+**Q: Why ship both leak detectors instead of merging them?**
+A: Different evidence shapes. Valley-free's evidence is a per-pair
+direction sequence the operator can trace pair-by-pair against a
+CAIDA dump. The cone variant's evidence is "is this AS in that AS's
+transitive customer cone" — a different audit trail, also worth
+having. Collapsing into one would hide which mode produced the
+alert.
 
 **Q: Why DuckDB, not Postgres / Parquet / ClickHouse?**
 A: Single-file, embedded, no server, native ATTACH for cross-store

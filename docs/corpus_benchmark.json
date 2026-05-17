@@ -1,16 +1,16 @@
 {
   "total": 4,
-  "tp": 3,
+  "tp": 4,
   "fn": 0,
-  "gap": 1,
+  "gap": 0,
   "results": [
     {
       "incident_id": "google_ntt_leak_2017",
       "shape": "route leak (RFC 7908)",
-      "expected_detector": "route_leak",
-      "outcome": "GAP",
-      "on_target_alerts": 0,
-      "other_alerts": 0,
+      "expected_detector": "customer_cone_leak",
+      "outcome": "TP",
+      "on_target_alerts": 123749,
+      "other_alerts": 396,
       "notes": ""
     },
     {

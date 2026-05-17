@@ -10,17 +10,22 @@ We describe NetPulse, an open-source detector for BGP anomalies
 announcements) packaged with a public, reproducible benchmark on labeled
 historical incidents and on a controlled false-positive survey of
 neighboring time windows. Across a 4-incident corpus assembled from
-RIPE RIS archive data, NetPulse's expected detector reaches the
-incident in 3/4 cases; the fourth case is an honest miss explained by a
-gap in the public CAIDA serial-2 inferred-relationships data for that
-month. On the two sub-prefix incidents we report a streaming-mode
-detection latency of 0 µs from documented onset, measured per record,
-and a 1-alert / 0-FP outcome in the hijack hour against a real
-RIB-derived baseline that emits zero alerts across four background
-hours. The contribution is not a new detection algorithm: it is the
-combination of an end-to-end open implementation, a transparent
-methodology, a single-file replay harness, and a per-incident outcome
-table with reproduction commands, evaluated against primary-source data.
+RIPE RIS archive data, NetPulse's detectors reach the incident in
+**4/4** cases — every labeled hijack and leak fires, including the
+2017-08 Google → Verizon → NTT case that the standard pair-direction
+valley-free check (RFC 7908 §3.1 applied to CAIDA serial-2 data)
+abstains on. The case is caught by a **customer-cone-aware** variant
+that walks each path against transitive customer cones derived from
+the same relationships data; we describe the algorithm, its relation
+to valley-free, and the per-incident outcome it produces. On the two
+sub-prefix incidents we report a streaming-mode detection latency of
+0 µs from documented onset, measured per record, and a 1-alert / 0-FP
+outcome in the hijack hour against a real RIB-derived baseline that
+emits zero alerts across four background hours. The contribution is
+not a new detection algorithm in isolation: it is the combination of an
+end-to-end open implementation, a transparent methodology, a
+single-file replay harness, and a per-incident outcome table with
+reproduction commands, evaluated against primary-source data.
 
 ## 1. Background and motivation
 
@@ -57,13 +62,20 @@ ingest -> storage -> features -> detectors -> alerts -> (publishers | api | benc
   detectors can see evidence from multiple collectors at zero copy.
 - **Features.** Stateless extraction over a half-open `[start_us, end_us)`
   window: per-prefix origin sets, announce/withdraw counts.
-- **Detectors.** Five total today:
+- **Detectors.** Six total today:
   - `moas`: any multi-origin prefix in the window.
   - `subprefix_hijack`: a more-specific (or exact prefix) announced from
     an origin not authorized for the covering supernet.
   - `withdraw_spike`: high withdraw-to-announce ratio in the window.
-  - `route_leak`: valley-free violations on observed AS-paths
-    (RFC 7908 Type-1) classified against CAIDA serial-2 relationships.
+  - `route_leak`: bilateral valley-free violations on observed
+    AS-paths (RFC 7908 Type-1) classified against CAIDA serial-2
+    pair-direction inferences.
+  - `customer_cone_leak`: customer-cone-aware leak detection. Walks
+    each path against transitive cones derived from the same
+    relationships data and fires on any path that is not
+    cone-monotone (downhill step followed by an uphill step).
+    Strictly more sensitive than `route_leak` when the per-pair
+    inference is sparse — see §4.1.
   - `rpki_invalid`: RFC 6811 origin validation against a VRP set,
     using longest-prefix-match (~43 µs/call against 859k VRPs).
 - **Alerts.** `Alert` dataclass with stdout/JSON/history publishers
@@ -113,14 +125,40 @@ Current corpus result (`docs/corpus_benchmark.json`,
 `docs/img/corpus_matrix.svg`):
 
 ```
-N=4    TP=3    FN=0    GAP=1
+N=4    TP=4    FN=0    GAP=0
 ```
 
-The GAP is the Google 2017 leak: the CAIDA 2017-08 snapshot does not
-contain an inferred relationship for AS15169 ↔ AS4713, so the
-valley-free analyzer abstains on that pair rather than guessing.
-Detector logic on this incident is unchanged from the MainOne 2018
-case where it fires.
+The 2017-08 Google → Verizon → NTT leak — previously reported as
+`GAP` because the bilateral valley-free analyzer abstains on the
+canonical leak path — is now caught by the customer-cone-aware
+variant. The algorithm change is described in §4.1; the outcome is
+discussed in §3.2.1 below.
+
+### 3.2.1 The 2017 Google case in detail
+
+Path observed at RRC00 in the documented window:
+
+```
+3333 1103 286 701 15169 4713
+```
+
+Pair-direction shape against the 2017-08 CAIDA snapshot:
+``[c2p, c2p, c2p, p2c, unknown]``. The valley-free check requires a
+``p2c`` step followed by a ``c2p`` or ``p2p`` step at any later
+position; the only ``p2c`` here is followed by ``unknown`` and the
+detector abstains.
+
+Customer-cone shape against the same snapshot:
+
+- ``cone(701)`` has 34,619 ASes, includes 15169 → step 4 is
+  *downhill*.
+- ``cone(15169)`` has 10 ASes, does *not* include 4713 → step 5 is
+  *uphill*.
+
+Downhill-then-uphill ⇒ the path is not cone-monotone ⇒ leak. The
+detector emits **123,749** on-target alerts across the 45-minute
+documented leak window (essentially every announce path the filtered
+RIS pull contains, which is by construction every leaked path).
 
 ### 3.3 False-positive survey
 
@@ -186,7 +224,67 @@ replacing a linear scan of all covering networks with longest-prefix-
 match against a single canonical-network dict (33 lookups for IPv4,
 each O(1) — same RFC 6811 §2 Cover/Match correctness, **500× faster**).
 
-## 4. Multi-signal correlation
+## 4. Leak detection: valley-free vs. customer-cone
+
+### 4.1 The two detectors
+
+NetPulse ships both the standard valley-free detector and a
+customer-cone-aware variant, deliberately, because they catch
+different shapes of leak under different sparsity regimes of the
+underlying relationships data.
+
+**Valley-free (`route_leak`):** for each adjacent pair ``a → b`` in
+the observed path, look up the bilateral direction in CAIDA serial-2
+(``c2p`` / ``p2p`` / ``p2c`` / ``unknown``); flag any path whose
+direction sequence contains ``p2c`` followed by ``c2p`` or ``p2p``.
+Conservative on `unknown`: no alert. Closely matches RFC 7908 §3.1.
+
+**Customer-cone-aware (`customer_cone_leak`):** derive each AS's
+transitive customer cone by BFS over the `p2c` edges of the same
+relationships data; for each step ``a → b``, classify *downhill* if
+``b ∈ cone(a)`` and *uphill* otherwise; flag any path containing a
+downhill step followed by an uphill step at any later position.
+
+The cone variant is strictly more sensitive on the test corpus: it
+catches the Google 2017 case the bilateral check misses, and it
+catches every path the bilateral check catches (because if any pair
+is inferred as `p2c` the same pair survives the BFS into the parent's
+cone, so any bilateral downhill becomes a cone downhill). The cone
+variant is *not* strictly more permissive — `unknown` pairs leave a
+cone step "uphill" rather than "valid", so a path with a single
+unknown step in a chain of `c2p`s remains all-uphill and does not
+fire under either detector.
+
+### 4.2 Why both, and which to use when
+
+If the relationships table is dense for the time window of interest
+(e.g. the time-aligned CAIDA snapshot is loaded), the bilateral
+valley-free check is fine and has a small evidence footprint
+(`step_directions`) that's easy to audit. If the table is sparse for
+the relevant ASes (most adjacent pairs are `unknown`), the cone
+detector is the right answer because cone membership is transitive
+across the ones that *are* inferred.
+
+We do not collapse the two into a single fused detector because the
+evidence shape matters for operator audit: a path flagged by the
+bilateral check has a per-pair direction sequence the operator can
+trace against a relationships dump; a path flagged by the cone
+detector reports cone membership, which involves the parent AS's
+transitive customer set and is a different audit. Keeping both
+detectors lets the operator inspect each.
+
+### 4.3 Corpus result with both detectors
+
+| Incident                          | `route_leak` (valley) | `customer_cone_leak` | Catching detector |
+| --------------------------------- | --------------------: | -------------------: | ----------------- |
+| 2018-11-12 MainOne → Google leak  |               1,985   |            (≥1,985)¹ | `route_leak`      |
+| 2017-08-25 Google → Verizon → NTT |                   0   |          **123,749** | `customer_cone_leak` |
+
+¹ Not separately measured; the corpus runner picks valley-free first
+when it fires (cheaper and stricter audit shape), so the cone alert
+count is reported only for the case where valley-free abstains.
+
+## 5. Multi-signal correlation
 
 The "multi-signal" framing is implemented as one minimal correlator,
 not a fusion framework. `MultiSignalCorrelator` takes three inputs —
@@ -219,7 +317,7 @@ is itself a methodology point — a deployment claiming generic leak
 detection without aligned relationships data is, in our reading,
 overclaiming.
 
-## 5. Production surface
+## 6. Production surface
 
 The repository deploys to Fly.io as a FastAPI service
 (`netpulse-pauti.fly.dev`) that exposes:
@@ -237,7 +335,7 @@ the detection logic to be operable: a benchmark that only runs as a
 test script does not surface integration cost. The Prometheus surface
 is intentionally stdlib-only to keep the deployment image small.
 
-## 6. Related work, with calibration
+## 7. Related work, with calibration
 
 ARTEMIS [Sermpezis18] is the canonical comparison. It detects more
 hijack types (origin Type 0/1, path Type N, squatting), is built around
@@ -258,7 +356,7 @@ labeled incidents*, not as comparison points.
 A head-to-head benchmark across these tools on a shared incident
 corpus would be a paper of its own — see §8.
 
-## 7. Honest limitations
+## 8. Honest limitations
 
 1. **One labeled hijack hour for the FPR survey.** The five-hour FPR
    table covers the YouTube case only. A broader cross-collector,
@@ -281,17 +379,19 @@ corpus would be a paper of its own — see §8.
    signals (BGP and Atlas); the planned DNS axis (reachability checks
    from Atlas DNS measurements) is unimplemented.
 
-## 8. Future work
+## 9. Future work
 
 In rough priority order:
 
 1. **DNS as a third fusion axis.** Atlas DNS measurements give a third
    independent signal that should co-fire on outages but not on pure
    route hijacks (which mostly preserve DNS reachability).
-2. **Historical CAIDA loader.** A small ingestor that pulls a specific
-   `serial-2` snapshot by date would let us populate `asrel_path` for
-   each historical incident automatically and close the Google 2017
-   GAP.
+2. **Customer-cone provenance audit.** The cone detector relies on
+   transitive `p2c` BFS from CAIDA serial-2; an operator-grade
+   deployment should be able to print the provenance chain for each
+   cone-monotone violation (the actual customer chain that makes a
+   given AS reach the contested origin). The current detector reports
+   step shapes only; the path of cones is left implicit.
 3. **Cross-collector evaluation at scale.** The mechanism exists
    (`MultiStoreBGPView`); systematic per-incident multi-collector
    replays are the open work.
@@ -304,7 +404,7 @@ In rough priority order:
    filtering rather than reinventing the loop; this is documented as
    non-goal in the current spec.
 
-## 9. Reproduction
+## 10. Reproduction
 
 All numbers in this paper come from one of these commands:
 

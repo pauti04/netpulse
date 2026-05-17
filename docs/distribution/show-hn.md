@@ -6,7 +6,7 @@ the engineering-honest framing, B leads with the multi-signal angle.
 
 ## Variant A — methodology-led (recommended)
 
-**Title:** Show HN: NetPulse – an open BGP anomaly detector with a 4-incident reproducible benchmark
+**Title:** Show HN: NetPulse – open BGP detector, 4/4 on labeled incidents incl. 2017 Google→NTT leak
 
 **URL:** https://github.com/pauti04/netpulse
 
@@ -22,9 +22,12 @@ NetPulse is opinionated about that part:
 
 - 4 labeled incidents from primary sources only (RIPE NCC, Cloudflare,
   BGPmon, ISC). No fabricated incident data — that's a hard rule in the
-  repo. 3 detected, 1 honest GAP (the CAIDA inferred-relationships
-  snapshot for 2017-08 is missing the AS pair the leak detector needs,
-  so it abstains rather than guesses).
+  repo. **4 / 4 detected, 0 GAP, 0 FN.** The 2017-08 Google → Verizon
+  → NTT leak that the standard valley-free check abstains on (the
+  AS15169↔AS4713 pair is `unknown` in CAIDA 2017-08) is caught by a
+  customer-cone-aware variant: NTT OCN is not in Google's 2017
+  customer cone (10 ASes), so the path step is uphill and the cone
+  detector fires (123,749 alerts).
 - Two latency numbers per sub-prefix incident: chunk-bounded (3.0 s
   at `--chunk 1m`) and per-record streaming (0 µs from documented
   onset — the first qualifying record IS the onset record in the
@@ -47,10 +50,11 @@ detection and what counts as a gap.
 Built on DuckDB, libBGPStream, RIPE Atlas. Python 3.11, MIT.
 
 Happy to dig into any of:
-- Why I chose `GAP` as a third bucket (instead of folding it into FN)
+- Why I ship both valley-free AND customer-cone-aware leak detectors
+  instead of collapsing them into one fused signal
 - How the per-record streaming benchmark differs from `--chunk` mode
-- What it would take to time-align CAIDA snapshots for every
-  historical incident automatically
+- Why the corpus methodology has three buckets (TP / FN / GAP) even
+  though the current corpus has zero GAP
 
 ## Variant B — multi-signal-led
 
@@ -71,19 +75,23 @@ valley-free) and an Atlas RTT-jump check on the same window of real
 `scripts/fusion_demo.py` reproduces the whole thing from the bundled
 data. Live FastAPI at netpulse-pauti.fly.dev.
 
-The full benchmark covers 4 labeled incidents (3 TP / 1 GAP / 0 FN)
-and a 4-hour FPR survey. Honest writeup at docs/paper.md.
+The full benchmark covers 4 labeled incidents (4 TP / 0 GAP / 0 FN
+— the 2017 Google leak required a customer-cone-aware leak detector
+that the repo ships alongside the standard valley-free one) and a
+4-hour FPR survey. Honest writeup at docs/paper.md.
 
 MIT, Python 3.11, DuckDB. https://github.com/pauti04/netpulse
 
 ## Top comment seed (post yourself within the first 5 minutes)
 
-> A note on the GAP outcome: the Google 2017 leak is the 4th
-> incident in the corpus and I'm reporting it as GAP rather than FN
-> on purpose. The detector logic is the same code that catches the
-> 2018 MainOne case end-to-end. What's missing is the CAIDA serial-2
-> snapshot for 2017-08 happening to infer the AS15169 ↔ AS4713 pair —
-> when an AS pair is `unknown` in the relationships table, the
-> valley-free analyzer abstains. That's a snapshot-loader change, not
-> an algorithm change, and folding it into FN would overclaim a
-> missing-input case as a missing-algorithm case.
+> A note on the corpus methodology: the third bucket is GAP, for
+> cases where the detector abstains because of a missing input rather
+> than an algorithm miss. The current corpus has zero GAP — Google
+> 2017 was a GAP under the standard valley-free check (the
+> AS15169↔AS4713 pair is `unknown` in CAIDA 2017-08, so the check
+> abstains) but the customer-cone-aware variant catches it: 4713 is
+> not in cone(15169), step 5 is uphill following the downhill at
+> step 4, alert fires. Keeping both detectors (rather than collapsing
+> into one) preserves the audit shape: valley-free's evidence is a
+> per-pair direction sequence; the cone variant's evidence is cone
+> membership. Different things to look at when debugging an alert.
