@@ -8,7 +8,7 @@ deployment has soaked, an initial 1.0 will lock the schema.
 
 ## [unreleased]
 
-### Added
+### Added (since 0.0.1)
 - **Persistent alert history.** `AlertHistoryStore` (DuckDB-backed) and
   `HistoryRecorder` (publisher wrapper) record every emitted alert.
   `netpulse stream --history <path>` and `netpulse serve --history
@@ -16,7 +16,51 @@ deployment has soaked, an initial 1.0 will lock the schema.
   detector, and severity filters.
 - **Public deployment.** Dockerfile + fly.toml ship the FastAPI surface;
   the project is live at <https://netpulse-pauti.fly.dev/>.
+- **Customer-cone-aware route-leak detector** (`customer_cone_leak`).
+  Walks each path against transitive customer cones derived by BFS
+  over the CAIDA p2c edges; fires on any path that is not
+  cone-monotone. Closes the previously open Google 2017 leak GAP —
+  corpus is now **4 / 4 with 0 GAP**. `netpulse detect leak --mode
+  valley|cone|both`.
+- **DNS reachability signal** (`dns_failure_rate`). Active probe loop
+  via `dnspython.Resolver`; per-hostname failure-rate detector;
+  optional third axis on `MultiSignalCorrelator`. `netpulse ingest
+  dns` + `netpulse detect dns`.
+- **Cross-collector aggregation.** `MultiStoreBGPView` ATTACHes N BGP
+  DuckDB stores read-only and exposes a UNION ALL `bgp_records` view.
+  `netpulse detect bgp --in a.db --in b.db ...` consumes it without
+  inflating MOAS counts.
+- **Per-record streaming-mode latency benchmark.**
+  `netpulse benchmark stream-latency` walks records in time order and
+  reports microsecond-resolution latency from documented onset to the
+  first qualifying detector evaluation. 0 µs on both labeled
+  sub-prefix incidents.
+- **Corpus benchmark runner.** `scripts/run_corpus_benchmark.py`
+  scores every labeled incident as TP / FN / GAP, renders the
+  per-incident matrix to `docs/img/corpus_matrix.svg`.
+- **Prometheus metrics endpoint.** Stdlib-only `MetricsRegistry`
+  exposes `netpulse_requests_total{detector=...}`,
+  `netpulse_alerts_total{detector=...}`, and
+  `netpulse_baseline_prefixes` on `GET /metrics`. Ready-to-import
+  Grafana 10+ dashboard at `docs/grafana/netpulse-dashboard.json`.
+- **Per-incident `asrel_path`** in the incident JSON schema so each
+  labeled leak gets its own time-aligned CAIDA snapshot.
+- **`docs/paper.md`** — paper-style working note (abstract → future
+  work) keeping every claim in lockstep with a re-runnable command.
+- **`docs/distribution/`** — Show HN drafts, tweet thread, slide-deck
+  outline with anticipated Q&A.
+- **End-to-end terminal-tour GIF** (`docs/img/tour.gif`) recorded via
+  vhs: demo → corpus → streaming-mode → live-API call.
 - **`docs/CONTRIBUTING.md`, `CHANGELOG.md`, `SECURITY.md`** OSS hygiene.
+
+### Changed
+- Performance: RPKI validate(prefix, asn) now uses longest-prefix-
+  match against a single canonical-network dict (~43 µs / call against
+  859k VRPs, ~23k validations / sec). Previously was a linear scan
+  over covering networks (~22 ms / call, **500× slower**).
+  Correctness preserved end-to-end (RFC 6811 §2 Cover/Match).
+- `SubPrefixHijackDetector` now also flags exact-prefix mismatches
+  where the prefix itself is in the baseline but the origin differs.
 
 ### Fixed
 - Default route (`0.0.0.0/0`) appearing in some RIB dumps was being
