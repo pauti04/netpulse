@@ -59,6 +59,3 @@ data/*.duckdb.wal
 .env
 .env.local
 
-# Claude Code local state
-.claude/settings.local.json
-.claude/.credentials.json

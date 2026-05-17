@@ -69,7 +69,7 @@ deployment has soaked, an initial 1.0 will lock the schema.
 
 ## 0.0.1
 
-Initial public release. Phases 0-5 of the roadmap in `CLAUDE.md` are
+Initial public release. Phases 0-5 of the roadmap in `PROJECT.md` are
 working end-to-end.
 
 ### Detectors

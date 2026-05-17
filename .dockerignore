@@ -15,7 +15,7 @@ scripts/
 Makefile
 benchmark*.md
 BENCHMARK.md
-CLAUDE.md
+PROJECT.md
 
 # Cached artifacts that aren't part of the deployed image.
 data/youtube_2008.duckdb

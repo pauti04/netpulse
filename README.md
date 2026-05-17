@@ -230,7 +230,7 @@ Reproduction commands and methodology: [BENCHMARK.md](BENCHMARK.md).
   data-flow conventions.
 - [`docs/references.md`](docs/references.md) — RFCs, primary incident
   sources, and detection literature this draws on.
-- [`CLAUDE.md`](CLAUDE.md) — full project context, roadmap, and the
+- [`PROJECT.md`](PROJECT.md) — full project context, roadmap, and the
   hard rules (no fabricated incident data, no invented API shapes,
   no over-engineering).
 
@@ -266,7 +266,7 @@ uv sync --extra viz                     # adds matplotlib for chart regeneration
 
 Pre-v1; the BGP detection path is benchmarked end-to-end and the Atlas
 signal is wired up. Multi-signal fusion, additional incidents, and the
-streaming/dashboard surfaces are tracked in [`CLAUDE.md`](CLAUDE.md) and
+streaming/dashboard surfaces are tracked in [`PROJECT.md`](PROJECT.md) and
 [`BENCHMARK.md`](BENCHMARK.md#open).
 
 ## Development
