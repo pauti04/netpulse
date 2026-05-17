@@ -212,6 +212,8 @@ Reproduction commands and methodology: [BENCHMARK.md](BENCHMARK.md).
 - [`docs/paper.md`](docs/paper.md) — paper-style working note: abstract,
   methodology, latency characterization, multi-signal correlator,
   honest limitations, future work.
+- [`docs/grafana/`](docs/grafana/) — ready-to-import Grafana 10+
+  dashboard for the `/metrics` surface.
 - [`BENCHMARK.md`](BENCHMARK.md) — full methodology, per-hour FPR table,
   reproduction commands, and an honest note on what the latency number
   does and does not mean.
