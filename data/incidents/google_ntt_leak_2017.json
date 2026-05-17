@@ -1,0 +1,17 @@
+{
+  "id": "google_ntt_leak_2017",
+  "name": "Google / Verizon -> NTT OCN route leak",
+  "kind": "leak",
+  "start_iso": "2017-08-25T03:15:00Z",
+  "end_iso": "2017-08-25T04:00:00Z",
+  "onset_iso": "2017-08-25T03:22:54Z",
+  "expected_detectors": ["route_leak"],
+  "bgp_store_path": "../google_leak_2017.duckdb",
+  "asrel_path": "../caida_asrel_2017_08.duckdb",
+  "source_url": "https://www.internetsociety.org/blog/2017/08/google-leaked-prefixes-knocked-japan-off-internet/",
+  "prefix": null,
+  "attacker_asn": 15169,
+  "victim_asn": 4713,
+  "notes": "Google (AS15169) accidentally leaked ~160k prefixes to Verizon (AS701), which propagated them globally; the worst-hit network was NTT OCN (AS4713). 25,658 distinct NTT OCN prefixes observed transiting Google -> Verizon at RRC00 in the data fetched on 2026-05-10 (filter='path \"_15169_4713\"'). Onset 03:22:54 UTC matches the BGPmon-reported 03:22 UTC onset to the minute. Standard route_leak detector (valley-free against the CAIDA serial-2 2017-08 snapshot) does NOT fire on these paths: the canonical leak path '3333 1103 286 701 15169 4713' has directions [c2p, c2p, c2p, p2c, unknown] -- a single p2c (Verizon->Google) is valid valley-free shape, and the 15169->4713 step is 'unknown' because CAIDA doesn't have that pair in its inferred relationships. Detecting this case at the path level requires either a customer-cone-aware detector ('AS15169 is not authorized to transit for AS4713') or more comprehensive AS-relationship data than the public CAIDA snapshot provides. This is an open detector gap rather than a missed signal; the data shows the leak clearly.",
+  "verified": true
+}

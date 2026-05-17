@@ -1,0 +1,44 @@
+{
+  "total": 4,
+  "tp": 3,
+  "fn": 0,
+  "gap": 1,
+  "results": [
+    {
+      "incident_id": "google_ntt_leak_2017",
+      "shape": "route leak (RFC 7908)",
+      "expected_detector": "route_leak",
+      "outcome": "GAP",
+      "on_target_alerts": 0,
+      "other_alerts": 0,
+      "notes": ""
+    },
+    {
+      "incident_id": "mainone_google_leak_2018",
+      "shape": "route leak (RFC 7908)",
+      "expected_detector": "route_leak",
+      "outcome": "TP",
+      "on_target_alerts": 1985,
+      "other_alerts": 606,
+      "notes": ""
+    },
+    {
+      "incident_id": "myetherwallet_2018",
+      "shape": "sub-prefix hijack",
+      "expected_detector": "subprefix_hijack",
+      "outcome": "TP",
+      "on_target_alerts": 1,
+      "other_alerts": 4,
+      "notes": ""
+    },
+    {
+      "incident_id": "youtube_pakistan_2008",
+      "shape": "sub-prefix hijack",
+      "expected_detector": "subprefix_hijack",
+      "outcome": "TP",
+      "on_target_alerts": 1,
+      "other_alerts": 0,
+      "notes": ""
+    }
+  ]
+}

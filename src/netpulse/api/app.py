@@ -7,11 +7,13 @@ from pathlib import Path
 from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
 from netpulse import __version__
 from netpulse.alerts import Alert
 from netpulse.alerts.store import AlertHistoryStore
+from netpulse.api.metrics import MetricsRegistry
 from netpulse.detectors.base import DetectorBase
 from netpulse.detectors.baseline import BGPBaseline
 from netpulse.detectors.moas import MOASDetector
@@ -97,8 +99,20 @@ def build_app(
         with BGPStore(baseline_path) as bs:
             baseline = BGPBaseline.from_store(bs)
 
+    metrics = MetricsRegistry()
+    requests_total = metrics.counter("netpulse_requests_total", "HTTP requests by endpoint.")
+    alerts_total = metrics.counter(
+        "netpulse_alerts_total", "Detector alerts emitted, labeled by detector."
+    )
+    baseline_prefixes_gauge = metrics.gauge(
+        "netpulse_baseline_prefixes", "Sub-prefix baseline size at startup."
+    )
+    if baseline is not None:
+        baseline_prefixes_gauge.set(float(len(baseline.origins)))
+
     @api.get("/health")
     def health() -> dict[str, str | int]:
+        requests_total.inc(label_value="health")
         return {
             "status": "ok",
             "version": __version__,
@@ -107,8 +121,15 @@ def build_app(
             "history": str(history_path) if history_path is not None else "",
         }
 
+    @api.get("/metrics", response_class=PlainTextResponse)
+    def metrics_endpoint() -> str:
+        """Prometheus text-format metrics."""
+        requests_total.inc(label_value="metrics")
+        return metrics.render()
+
     @api.post("/detect/bgp", response_model=DetectResponse)
     def detect_bgp(req: DetectRequest) -> DetectResponse:
+        requests_total.inc(label_value="detect_bgp")
         try:
             start_us = _parse_iso_to_us(req.start_iso)
         except ValueError as e:
@@ -132,6 +153,9 @@ def build_app(
         for det in detectors:
             raw_alerts.extend(det.score(features))
 
+        for a in raw_alerts:
+            alerts_total.inc(label_value=a.detector)
+
         # Persist into the history store if one was configured at startup.
         if history_path is not None and raw_alerts:
             with AlertHistoryStore(history_path) as hist:
@@ -154,6 +178,7 @@ def build_app(
         severity: str | None = Query(None),
         limit: int = Query(1000, ge=1, le=10_000),
     ) -> list[AlertOut]:
+        requests_total.inc(label_value="list_alerts")
         if history_path is None:
             raise HTTPException(
                 status_code=404,

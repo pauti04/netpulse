@@ -24,6 +24,8 @@ demo:
 charts:
 	uv run python scripts/plot_youtube_hijack.py
 	uv run python scripts/plot_fpr_bars.py
+	uv run python scripts/run_corpus_benchmark.py
+	uv run python scripts/plot_corpus_matrix.py
 
 clean:
 	rm -rf .pytest_cache .mypy_cache .ruff_cache build dist *.egg-info
