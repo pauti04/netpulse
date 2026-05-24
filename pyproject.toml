@@ -37,6 +37,12 @@ bgp = ["pybgpstream>=2.0.0"]
 # optional so the core install stays small.
 viz = ["matplotlib>=3.8"]
 
+# Streamlit alert-console dashboard (`netpulse dashboard`). Heavyweight
+# so kept optional; the API + CLI work without it.
+dashboard = [
+    "streamlit>=1.34",
+]
+
 [project.scripts]
 netpulse = "netpulse.cli:app"
 

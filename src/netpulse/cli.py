@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 from datetime import UTC, datetime
 from pathlib import Path
@@ -1066,6 +1067,63 @@ def serve(
         f"(store={store_path}, baseline={baseline_path}, history={history_path})"
     )
     uvicorn.run(api, host=host, port=port)
+
+
+@app.command("dashboard")
+def dashboard(
+    history_path: Annotated[
+        Path,
+        typer.Option(
+            "--history",
+            help=(
+                "Alert-history DuckDB to visualize. Use the same path you "
+                "passed to `netpulse stream --history` or "
+                "`netpulse serve --history`."
+            ),
+        ),
+    ],
+    port: Annotated[int, typer.Option("--port", help="TCP port for Streamlit.")] = 8501,
+    host: Annotated[str, typer.Option("--host", help="Bind address.")] = "127.0.0.1",
+) -> None:
+    """Launch the Streamlit alert-console dashboard over a NetPulse history DuckDB.
+
+    Requires the optional 'dashboard' extra: `uv sync --extra dashboard`.
+    """
+    import shutil
+    import subprocess
+    import sys
+
+    if not history_path.exists():
+        raise typer.BadParameter(f"history file does not exist: {history_path}")
+
+    streamlit_bin = shutil.which("streamlit")
+    if streamlit_bin is None:
+        console.log(
+            "[red]streamlit is not installed. Run `uv sync --extra dashboard` first.[/red]"
+        )
+        raise typer.Exit(code=2)
+
+    app_path = Path(__file__).parent / "dashboard" / "app.py"
+    env = dict(**os.environ, NETPULSE_DASHBOARD_HISTORY=str(history_path.resolve()))
+    console.log(
+        f"launching Streamlit on http://{host}:{port} (history={history_path})"
+    )
+    cmd = [
+        streamlit_bin,
+        "run",
+        str(app_path),
+        "--server.port",
+        str(port),
+        "--server.address",
+        host,
+        "--browser.gatherUsageStats",
+        "false",
+    ]
+    # exec replaces this process so Ctrl-C lands cleanly in Streamlit.
+    if sys.platform == "win32":
+        # subprocess.call returns the exit code; Typer surfaces it.
+        raise typer.Exit(code=subprocess.call(cmd, env=env))
+    os.execve(streamlit_bin, cmd, env)
 
 
 if __name__ == "__main__":
