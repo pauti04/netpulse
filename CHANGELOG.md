@@ -9,19 +9,33 @@ deployment has soaked, an initial 1.0 will lock the schema.
 ## [unreleased]
 
 ### Changed
-- **`netpulse demo` got a rewrite.** The output is now a Rich Panel
-  with the incident story + victim/attacker callout, three
-  loading-stage lines with millisecond timing, a colorized alert
-  Table grouped by severity (critical = red, warning = yellow,
-  info = cyan), and a green summary panel with detectors-fired
-  count and total wall time. New `--incident <id>` flag plays any
-  of the 5 corpus incidents through the same pipeline -- the
-  default still runs against the bundled YouTube fixture with no
-  setup, but `--incident indosat_2014` shows 19 critical alerts
-  if the data is local. Unknown incident ids print a friendly
-  error listing what is available. `docs/tapes/demo.tape` +
-  `docs/tapes/tour.tape` updated, `docs/img/demo.gif` +
-  `docs/img/tour.gif` re-rendered.
+- **`netpulse demo` is now a 10/10 instrument-grade demo.**
+  Curated narrative + automatic-detector-routing for all 5 corpus
+  incidents (3 hijacks + 2 leaks):
+  - Story Panel for each incident with the human background,
+    victim/attacker callout, and ISO timestamps.
+  - **Hijacker AS-path panel** pulled from the actual BGP store
+    -- shows the recorded path (e.g. `AS3333 → AS12859 → AS6461
+    → AS3491 → AS17557 ←ORIGIN`) with the attacker AS highlighted.
+  - **Auto-dispatch** by incident_type: hijack incidents run
+    `MOASDetector + SubPrefixHijackDetector`; leak incidents
+    automatically load the matching CAIDA AS-relationships
+    snapshot and run `RouteLeakDetector + CustomerConeLeakDetector`.
+  - **Noise filtering**: by default MOAS warnings on prefixes
+    unrelated to the labeled incident are folded into a single
+    summary row, and the alert table is capped at 8 rows with a
+    "+N more" footer. `--all` shows everything.
+  - **Color-coded verdict** Panel: red `✗ HIJACK DETECTED` for
+    hijacks, red `✗ LEAK DETECTED` for leaks, yellow
+    `⚠ Warnings only`, green `✓ Clean window`.
+  - **`--list` flag** renders a Rich Table of the 5 curated
+    incidents with availability indicators (`bundled` vs
+    `fetch first`).
+  - Reproduce-live curl hint at the bottom for the YouTube case;
+    consistent next-step pointers for the others.
+  - `docs/tapes/demo.tape` + `docs/tapes/tour.tape` rewritten
+    around the new flow; `docs/img/demo.gif` (498KB) and
+    `docs/img/tour.gif` (773KB) re-rendered via vhs.
 
 ### Added (since 0.0.1)
 - **ARTEMIS head-to-head scaffolding.**

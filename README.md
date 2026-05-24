@@ -104,16 +104,26 @@ Atlas loss spike, and DNS reachability (active probes via
 
 ```sh
 git clone https://github.com/pauti04/netpulse && cd netpulse
-uv sync                                # core install (no native deps)
-uv run netpulse demo                   # 2008 YouTube hijack, bundled
-uv run netpulse demo --incident indosat_2014    # any corpus incident
+uv sync                                              # core install (no native deps)
+uv run netpulse demo                                 # 2008 YouTube hijack (bundled)
+uv run netpulse demo --list                          # all 5 curated incidents
+uv run netpulse demo --incident mainone_google_leak_2018   # LEAK DETECTED verdict
 ```
 
-The bundled demo replays a 5-minute RRC00 slice around the YouTube
-hijack onset, then renders a Rich panel with the story, a colorized
-alert table by severity, and a summary line with wall-clock timing.
-Under one second. `--incident <id>` swaps in any of the 5 labeled
-corpus incidents you have fetched locally.
+Each demo prints a story panel describing the incident, pulls the
+actual hijacker AS path from the archive (`AS3333 → AS12859 → AS6461
+→ AS3491 → AS17557 ←ORIGIN`), runs the matching detectors (hijack
+vs leak), and lands a color-coded verdict panel: **HIJACK DETECTED**,
+**LEAK DETECTED**, or **Clean window**. Noise-filtered by default;
+add `--all` to see every alert.
+
+| Incident                       | Detectors fired                          | Verdict          |
+|--------------------------------|------------------------------------------|------------------|
+| `youtube_pakistan_2008`        | moas=2, subprefix_hijack=1               | HIJACK DETECTED  |
+| `indosat_2014`                 | subprefix_hijack=19 (both branches)      | HIJACK DETECTED  |
+| `myetherwallet_2018`           | subprefix_hijack=5                       | HIJACK DETECTED  |
+| `google_ntt_leak_2017`         | customer_cone_leak=124,145               | LEAK DETECTED    |
+| `mainone_google_leak_2018`     | route_leak=1,985, customer_cone_leak=4,100 | LEAK DETECTED  |
 
 For a live tap of the global routing table:
 

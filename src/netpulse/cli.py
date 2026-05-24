@@ -975,8 +975,14 @@ def stream(
             history_store.close()
 
 
+# Curated narratives for the 5 corpus incidents. Each entry pairs a
+# story panel with a SQL filter that finds the canonical hijacker AS
+# path inside the BGP store, so the demo can show the actual record
+# that triggered detection -- not just the alert text. Fixture paths
+# are relative to the repo root.
 _DEMO_STORIES: dict[str, dict[str, Any]] = {
     "youtube_pakistan_2008": {
+        "incident_type": "hijack",
         "headline": "YouTube / Pakistan Telecom hijack",
         "when": "2008-02-24 · 18:47:57 UTC onset",
         "story": (
@@ -986,11 +992,113 @@ _DEMO_STORIES: dict[str, dict[str, Any]] = {
             "YouTube was unreachable across the internet."
         ),
         "fixture_rel": "data/fixtures/youtube_2008_demo.duckdb",
+        "baseline_rel": None,  # baked into the demo (hand-curated)
+        "asrel_rel": None,
         "window_start_us": 1_203_878_700_000_000,
         "window_end_us": 1_203_879_000_000_000,
         "onset_us": 1_203_878_877_000_000,
-        "victim": "208.65.152.0/22 -> AS36561 (YouTube)",
+        "victim": "208.65.152.0/22 → AS36561 (YouTube)",
         "attacker": "AS17557 (Pakistan Telecom)",
+        "attacker_asn": 17557,
+        "hijack_prefix": "208.65.153.0/24",
+        "path_note": (
+            "The /24 should be reachable only inside Pakistan. "
+            "PCCW (AS3491) propagated it globally."
+        ),
+    },
+    "indosat_2014": {
+        "incident_type": "hijack",
+        "headline": "Indosat / AS4761 MOAS hijack",
+        "when": "2014-04-02 · 18:25:31 UTC onset",
+        "story": (
+            "AS4761 (PT Indosat) briefly re-announced hundreds of thousands of "
+            "prefixes outside its 114.4.0.0/15 allocation. RRC00 saw ~3,700 hijacked "
+            "prefixes from 16 distinct peers over an 8-minute window. AS45305 "
+            "(PT Cyberindo Aditama) was the largest single victim."
+        ),
+        "fixture_rel": "data/indosat_2014.duckdb",
+        "baseline_rel": "data/baselines/indosat_2014_baseline.duckdb",
+        "window_start_us": 1_396_462_800_000_000,
+        "window_end_us": 1_396_464_000_000_000,
+        "onset_us": 1_396_463_131_000_000,
+        "victim": "AS45305 (PT Cyberindo Aditama) + ~50 others",
+        "attacker": "AS4761 (PT Indosat)",
+        "attacker_asn": 4761,
+        "hijack_prefix": "103.28.112.0/22",
+        "path_note": "AS45305's /22 re-announced with AS4761 spliced in as origin.",
+    },
+    "myetherwallet_2018": {
+        "incident_type": "hijack",
+        "headline": "MyEtherWallet / Amazon Route 53 hijack",
+        "when": "2018-04-24 · 11:05:50 UTC onset",
+        "story": (
+            "AS10297 (eNet) announced /24 more-specifics of Amazon Route 53 prefixes "
+            "(legitimately covered by AS16509's /23s). DNS resolutions for "
+            "myetherwallet.com and other Route 53-served domains were redirected "
+            "to attacker-controlled servers; ~$152k in ETH was stolen."
+        ),
+        "fixture_rel": "data/myetherwallet_2018.duckdb",
+        "baseline_rel": "data/baselines/myetherwallet_2018_rib.duckdb",
+        "window_start_us": 1_524_567_600_000_000,
+        "window_end_us": 1_524_569_400_000_000,
+        "onset_us": 1_524_567_950_000_000,
+        "victim": "205.251.192.0/23 → AS16509 (AWS/Route 53)",
+        "attacker": "AS10297 (eNet, an Ohio ISP)",
+        "attacker_asn": 10297,
+        "hijack_prefix": "205.251.192.0/24",
+        "path_note": "/24 more-specific cut from inside Route 53's /23 supernet.",
+    },
+    "google_ntt_leak_2017": {
+        "incident_type": "leak",
+        "headline": "Google → Verizon → NTT OCN route leak",
+        "when": "2017-08-25 · 03:22:54 UTC onset",
+        "story": (
+            "AS15169 (Google) accidentally leaked ~160k prefixes to AS701 (Verizon), "
+            "which propagated them globally. The worst-hit downstream was AS4713 "
+            "(NTT OCN) — large parts of Japan lost internet access for ~1 hour. "
+            "Classic customer-cone violation."
+        ),
+        "fixture_rel": "data/google_leak_2017.duckdb",
+        "baseline_rel": None,
+        "asrel_rel": "data/caida_asrel_2017_08.duckdb",
+        "window_start_us": 1_503_631_200_000_000,
+        "window_end_us": 1_503_633_600_000_000,
+        "onset_us": 1_503_631_377_000_000,
+        "victim": "AS4713 (NTT OCN)",
+        "attacker": "AS15169 (Google) via AS701 (Verizon)",
+        "attacker_asn": 4713,
+        "hijack_prefix": None,
+        "path_note": (
+            "Canonical leak path: AS3333 → AS1103 → AS286 → AS701 → AS15169 → AS4713. "
+            "Standard valley-free leaks because CAIDA doesn't have the 15169-4713 "
+            "pair; the cone-aware detector catches it."
+        ),
+    },
+    "mainone_google_leak_2018": {
+        "incident_type": "leak",
+        "headline": "MainOne → China Telecom → Russia route leak",
+        "when": "2018-11-12 · 21:12:16 UTC onset",
+        "story": (
+            "AS37282 (MainOne, Nigeria) accepted Google's prefixes from a peer and "
+            "propagated them upstream to AS4809 (China Telecom) → AS20485 (Transtelecom) "
+            "→ tier-1 AS2914 (NTT). Textbook Type-1 RFC 7908 leak; for ~74 minutes "
+            "Google traffic transited through China and Russia."
+        ),
+        "fixture_rel": "data/mainone_2018.duckdb",
+        "baseline_rel": None,
+        "asrel_rel": "data/caida_asrel_2018_11.duckdb",
+        "window_start_us": 1_542_057_136_000_000,
+        "window_end_us": 1_542_061_536_000_000,
+        "onset_us": 1_542_057_136_000_000,
+        "victim": "AS15169 (Google)",
+        "attacker": "AS37282 (MainOne)",
+        "attacker_asn": 15169,
+        "hijack_prefix": None,
+        "path_note": (
+            "Canonical leak path: AS15562 → AS2914 → AS20485 → AS4809 → AS37282 → AS15169. "
+            "203 distinct Google prefixes observed leaking through MainOne in the 90-minute "
+            "window. Detected via valley-free + customer-cone path inference."
+        ),
     },
 }
 
@@ -1007,7 +1115,7 @@ def _demo_render_panel(
     from rich.padding import Padding
     from rich.panel import Panel
 
-    title = f"[bold cyan]NetPulse[/] [dim]·[/] {inc_id}"
+    title = f"[bold cyan]⚡ NetPulse[/] [dim]·[/] {inc_id}"
     body = (
         f"[bold white]{headline}[/]\n"
         f"[dim]{when}[/]\n\n"
@@ -1020,18 +1128,119 @@ def _demo_render_panel(
     )
 
 
-def _demo_render_alerts(alerts: list[Any]) -> None:
+def _demo_render_hijack_path(
+    store_path: Path,
+    attacker_asn: int,
+    hijack_prefix: str | None,
+    path_note: str,
+) -> None:
+    """Pull the canonical hijacker path from the BGP store and render it.
+
+    Looks up the first observed path that originates at ``attacker_asn``
+    (optionally constrained to ``hijack_prefix``) and renders it as an
+    arrow-separated AS chain with the attacker AS highlighted.
+    """
+    import duckdb
+    from rich.panel import Panel
+
+    sql = "SELECT prefix, as_path, timestamp_us FROM bgp_records WHERE origin_as = ?"
+    params: list[Any] = [attacker_asn]
+    if hijack_prefix is not None:
+        sql += " AND prefix = ?"
+        params.append(hijack_prefix)
+    sql += " ORDER BY timestamp_us LIMIT 1"
+
+    try:
+        con = duckdb.connect(str(store_path), read_only=True)
+        row = con.execute(sql, params).fetchone()
+    except Exception:
+        return
+    if row is None:
+        return
+    prefix, as_path, _ts = row
+    if not as_path:
+        return
+
+    hops = str(as_path).split()
+    rendered_hops: list[str] = []
+    for hop in hops:
+        try:
+            asn = int(hop)
+        except ValueError:
+            rendered_hops.append(hop)
+            continue
+        if asn == attacker_asn:
+            rendered_hops.append(f"[bold red]AS{asn}[/]")
+        else:
+            rendered_hops.append(f"AS{asn}")
+    path_str = " [dim]→[/] ".join(rendered_hops) + " [dim]←ORIGIN[/]"
+
+    body = f"[bold]{prefix}[/] announced via:\n\n  {path_str}\n\n[dim]{path_note}[/]"
+    console.print(
+        Panel(
+            body,
+            title="[yellow]⚠ Hijacker path observed at RRC00[/]",
+            border_style="yellow",
+            expand=False,
+        )
+    )
+    console.print()
+
+
+def _demo_render_alerts(
+    alerts: list[Any],
+    show_all: bool,
+    incident_prefix: str | None,
+    max_rows: int = 8,
+) -> int:
     """Render alerts as a colorized Rich Table grouped by severity.
 
-    Takes ``list[Any]`` rather than ``list[Alert]`` to avoid a heavy
-    top-level import; the function only relies on the four public
-    Alert attributes that have stable names since 0.0.1.
+    Returns the number of alerts actually displayed. Behavior:
+    - ``show_all=False`` (default) drops MOAS warnings on prefixes
+      unrelated to the labeled incident so the headline isn't drowned
+      by noise.
+    - After filtering, the table is truncated to ``max_rows`` and a
+      single "+N more" footer row is added. ``--all`` shows everything.
     """
     from rich.table import Table
 
     severity_color = {"critical": "red", "warning": "yellow", "info": "cyan"}
     severity_order = {"critical": 0, "warning": 1, "info": 2}
     sorted_alerts = sorted(alerts, key=lambda a: severity_order.get(a.severity, 3))
+
+    if show_all or incident_prefix is None:
+        kept = sorted_alerts
+        filtered_out = 0
+    else:
+        # An alert is on-target if (a) it's critical (always the
+        # headline) (b) it's a subprefix_hijack alert, or (c) its
+        # prefix shares the first 16 bits with the incident's prefix.
+        def _is_on_target(a: Any) -> bool:
+            if a.severity == "critical":
+                return True
+            if a.detector == "subprefix_hijack":
+                return True
+            try:
+                a_first16 = ".".join(a.entity.split(".")[:2])
+                inc_first16 = ".".join(incident_prefix.split(".")[:2])
+                return a_first16 == inc_first16
+            except (AttributeError, IndexError):
+                return False
+
+        kept = [a for a in sorted_alerts if _is_on_target(a)]
+        filtered_out = len(sorted_alerts) - len(kept)
+
+    # Truncate to keep the table visually scannable even on a
+    # thousand-alert leak window.
+    if show_all:
+        displayed = kept
+        truncated = 0
+    elif len(kept) > max_rows:
+        displayed = kept[:max_rows]
+        truncated = len(kept) - max_rows
+    else:
+        displayed = kept
+        truncated = 0
 
     table = Table(
         title=None,
@@ -1046,16 +1255,34 @@ def _demo_render_alerts(alerts: list[Any]) -> None:
     table.add_column("entity", style="white", width=22, overflow="fold")
     table.add_column("summary", style="white", overflow="fold")
 
-    for a in sorted_alerts:
+    for a in displayed:
         sev = a.severity
         color = severity_color.get(sev, "white")
+        # Trim summaries that are very long (the cone-leak ones print
+        # the full AS path; clip to keep the row count visible).
+        summary = a.summary if len(a.summary) <= 120 else a.summary[:117] + "…"
         table.add_row(
             f"[{color}]{sev}[/]",
             a.detector,
             a.entity,
-            a.summary,
+            summary,
+        )
+    if truncated > 0:
+        table.add_row(
+            "[dim]…[/]",
+            "[dim]…[/]",
+            "[dim]…[/]",
+            f"[dim]+{truncated} more matching alerts (use --all to see them)[/]",
+        )
+    if filtered_out > 0:
+        table.add_row(
+            "[dim]warning[/]",
+            "[dim]moas[/]",
+            "[dim](other prefixes)[/]",
+            f"[dim]{filtered_out} MOAS warnings on unrelated prefixes -- pass --all to show[/]",
         )
     console.print(table)
+    return len(kept)
 
 
 @app.command("demo")
@@ -1067,18 +1294,35 @@ def demo(
             help="Incident id to replay. Defaults to youtube_pakistan_2008 (bundled).",
         ),
     ] = "youtube_pakistan_2008",
+    show_list: Annotated[
+        bool,
+        typer.Option(
+            "--list",
+            help="List the curated incidents available to --incident, then exit.",
+        ),
+    ] = False,
+    show_all: Annotated[
+        bool,
+        typer.Option(
+            "--all",
+            help=(
+                "Show every alert. Default hides MOAS warnings on "
+                "prefixes unrelated to the incident."
+            ),
+        ),
+    ] = False,
 ) -> None:
-    """Run a labeled BGP incident against a bundled or local fixture (~1s, no setup).
+    """Replay a labeled BGP incident against a bundled or local fixture (~1s, no setup).
 
-    The default replays the canonical YouTube/Pakistan 2008 hijack against
-    the bundled real-data fixture. Pass `--incident <id>` to replay any
-    other corpus incident you have fetched locally (e.g.
-    `--incident indosat_2014`); the command falls back with a helpful
-    error if the incident's DuckDB store is missing.
+    The default runs the canonical YouTube/Pakistan 2008 hijack against
+    a bundled real-data fixture. Use ``--incident <id>`` for any of the
+    other 4 curated corpus incidents (run ``--list`` to see them) and
+    ``--all`` to include unrelated MOAS noise.
     """
     import time as _time
 
     from rich.panel import Panel
+    from rich.table import Table
 
     from netpulse.detectors.baseline import BGPBaseline
     from netpulse.detectors.moas import MOASDetector
@@ -1088,58 +1332,74 @@ def demo(
 
     repo_root = Path(__file__).resolve().parent.parent.parent
 
-    # The YouTube case has a baked-in narrative; other incidents fall
-    # back to a generic story sourced from the incident JSON.
-    if incident_id in _DEMO_STORIES:
-        meta = _DEMO_STORIES[incident_id]
-        fixture = repo_root / meta["fixture_rel"]
-        window_start_us = int(meta["window_start_us"])
-        window_end_us = int(meta["window_end_us"])
-        baseline = BGPBaseline.build({"208.65.152.0/22": {36561}})
-        _demo_render_panel(
-            inc_id=incident_id,
-            headline=str(meta["headline"]),
-            when=str(meta["when"]),
-            story=str(meta["story"]),
-            victim=str(meta["victim"]),
-            attacker=str(meta["attacker"]),
+    # ----- --list short-circuit -----
+    if show_list:
+        list_table = Table(
+            title="[bold cyan]netpulse demo --incident <id>[/]",
+            border_style="cyan",
+            show_header=True,
+            header_style="bold",
+            expand=False,
         )
-    else:
-        # Resolve via the corpus loader so any user-fetched incident
-        # plays through the same pipeline.
-        from netpulse.benchmark.loader import load_incident
+        list_table.add_column("incident id", style="bold cyan")
+        list_table.add_column("headline", style="white")
+        list_table.add_column("when", style="dim")
+        list_table.add_column("data?", style="white")
+        for inc_id, meta in _DEMO_STORIES.items():
+            fixture_path = repo_root / meta["fixture_rel"]
+            data_status = "[green]bundled[/]" if fixture_path.exists() else "[yellow]fetch first[/]"
+            list_table.add_row(inc_id, meta["headline"], meta["when"], data_status)
+        console.print(list_table)
+        return
 
-        inc_path = repo_root / "data" / "incidents" / f"{incident_id}.json"
-        if not inc_path.exists():
+    if incident_id not in _DEMO_STORIES:
+        console.print(
+            f"[red]No demo for '{incident_id}'.[/] "
+            f"Known incidents: {', '.join(sorted(_DEMO_STORIES))}"
+        )
+        raise typer.Exit(1)
+
+    meta = _DEMO_STORIES[incident_id]
+    fixture = repo_root / meta["fixture_rel"]
+    window_start_us = int(meta["window_start_us"])
+    window_end_us = int(meta["window_end_us"])
+
+    # ----- Story panel -----
+    _demo_render_panel(
+        inc_id=incident_id,
+        headline=str(meta["headline"]),
+        when=str(meta["when"]),
+        story=str(meta["story"]),
+        victim=str(meta["victim"]),
+        attacker=str(meta["attacker"]),
+    )
+
+    if not fixture.exists():
+        console.print(f"[red]Fixture missing at {fixture}.[/]")
+        if incident_id != "youtube_pakistan_2008":
             console.print(
-                f"[red]No labeled incident named '{incident_id}' under data/incidents/.[/]"
+                "[dim]Fetch the incident's BGP data via the recipe in "
+                f"data/incidents/{incident_id}.json -> notes, "
+                "then re-run.[/]"
             )
-            console.print(
-                "[dim]Known incidents: "
-                + ", ".join(
-                    sorted(
-                        p.stem
-                        for p in (repo_root / "data" / "incidents").glob("*.json")
-                        if not p.name.startswith("_")
-                    )
-                )
-                + "[/]"
-            )
-            raise typer.Exit(1)
-        inc = load_incident(inc_path)
+        raise typer.Exit(1)
 
-        # Resolve store + baseline relative to data/incidents/ (same convention
-        # the corpus benchmark runner uses).
-        if inc.bgp_store_path is None:
-            console.print(f"[red]Incident {incident_id} has no bgp_store_path; demo needs one.[/]")
-            raise typer.Exit(1)
-        fixture = (inc_path.parent / inc.bgp_store_path).resolve()
-        window_start_us = inc.start_us
-        window_end_us = inc.end_us
+    incident_type = str(meta.get("incident_type", "hijack"))
 
-        # Build baseline from baseline_path if present; else use an empty one.
-        if inc.baseline_path is not None:
-            baseline_p = (inc_path.parent / inc.baseline_path).resolve()
+    # ----- Loading -----
+    t0 = _time.perf_counter()
+    all_alerts: list[Any] = []
+    by_detector: dict[str, int] = {}
+    detectors_run = 0
+
+    if incident_type == "hijack":
+        # Baseline: hand-curated for YouTube; loaded from baseline_rel
+        # for the others.
+        baseline_rel = meta.get("baseline_rel")
+        if incident_id == "youtube_pakistan_2008":
+            baseline = BGPBaseline.build({"208.65.152.0/22": {36561}})
+        elif baseline_rel is not None:
+            baseline_p = repo_root / baseline_rel
             if baseline_p.exists():
                 with BGPStore(baseline_p) as bs:
                     baseline = BGPBaseline.from_store(bs)
@@ -1148,70 +1408,99 @@ def demo(
         else:
             baseline = BGPBaseline.build({})
 
-        victim = f"AS{inc.victim_asn}" if inc.victim_asn is not None else "[dim]see notes[/]"
-        attacker = f"AS{inc.attacker_asn}" if inc.attacker_asn is not None else "[dim]see notes[/]"
-        start_iso = datetime.fromtimestamp(inc.start_us / 1_000_000, tz=UTC).strftime(
-            "%Y-%m-%d %H:%M UTC"
-        )
-        if inc.onset_us is not None:
-            onset_iso = datetime.fromtimestamp(inc.onset_us / 1_000_000, tz=UTC).strftime(
-                "%H:%M:%S UTC"
-            )
-            when = f"{start_iso} · {onset_iso} onset"
-        else:
-            when = start_iso
-        # Two-sentence trim of the notes for the demo card.
-        first_sentence = (inc.notes.split(". ")[0] + ".") if inc.notes else "(no notes)"
-        _demo_render_panel(
-            inc_id=incident_id,
-            headline=inc.name,
-            when=when,
-            story=first_sentence,
-            victim=victim,
-            attacker=attacker,
-        )
+        with BGPStore(fixture) as store:
+            feats = extract_bgp_features(store, window_start_us, window_end_us)
+        load_ms = (_time.perf_counter() - t0) * 1000
 
-    if not fixture.exists():
-        console.print(f"[red]Fixture missing at {fixture}.[/]")
         console.print(
-            "[dim]Run from a clone of the repo, or fetch the incident's BGP data via\n"
-            "`netpulse ingest bgp ...` per the incident JSON's notes field.[/]"
+            f"  [green]+[/] loaded fixture        "
+            f"[bold]{feats.announce_total}[/]A · "
+            f"[bold]{feats.withdraw_total}[/]W · "
+            f"[bold]{len(feats.origins_by_prefix)}[/] distinct prefixes "
+            f"[dim]({load_ms:.1f}ms)[/]"
         )
-        raise typer.Exit(1)
+        console.print(
+            f"  [green]+[/] built baseline        [bold]{len(baseline.origins)}[/] supernet(s)"
+        )
 
-    # ----- Loading -----
-    t0 = _time.perf_counter()
-    with BGPStore(fixture) as store:
-        feats = extract_bgp_features(store, window_start_us, window_end_us)
-    load_ms = (_time.perf_counter() - t0) * 1000
+        t1 = _time.perf_counter()
+        hijack_detectors = [MOASDetector(), SubPrefixHijackDetector(baseline)]
+        for det in hijack_detectors:
+            alerts = det.score(feats)
+            by_detector[det.name] = len(alerts)
+            all_alerts.extend(alerts)
+        detectors_run = len(hijack_detectors)
+        detect_ms = (_time.perf_counter() - t1) * 1000
+    else:
+        # ----- Leak path (route_leak + customer_cone_leak) -----
+        from netpulse.detectors.customer_cone import CustomerConeMap
+        from netpulse.detectors.customer_cone_leak import CustomerConeLeakDetector
+        from netpulse.detectors.route_leak import (
+            ASRelationshipMap,
+            ObservedPath,
+            RouteLeakDetector,
+            parse_as_path,
+        )
+        from netpulse.storage.asrel_store import ASRelStore
 
-    console.print(
-        f"  [green]+[/] loaded fixture        "
-        f"[bold]{feats.announce_total}[/]A · "
-        f"[bold]{feats.withdraw_total}[/]W · "
-        f"[bold]{len(feats.origins_by_prefix)}[/] distinct prefixes "
-        f"[dim]({load_ms:.1f}ms)[/]"
-    )
-    console.print(
-        f"  [green]+[/] built baseline        [bold]{len(baseline.origins)}[/] supernet(s)"
-    )
+        asrel_rel = meta.get("asrel_rel")
+        if asrel_rel is None:
+            console.print("[red]Leak incident missing asrel_rel; can't run leak detectors.[/]")
+            raise typer.Exit(1)
+        asrel_p = repo_root / asrel_rel
+        if not asrel_p.exists():
+            console.print(f"[red]AS-relationships file missing at {asrel_p}.[/]")
+            console.print(
+                "[dim]Run `netpulse ingest asrel --out "
+                f"{asrel_rel}` to fetch the matching CAIDA snapshot.[/]"
+            )
+            raise typer.Exit(1)
 
-    # ----- Detecting -----
-    t1 = _time.perf_counter()
-    detectors = [MOASDetector(), SubPrefixHijackDetector(baseline)]
-    all_alerts: list[Any] = []
-    by_detector: dict[str, int] = {}
-    for det in detectors:
-        alerts = det.score(feats)
-        by_detector[det.name] = len(alerts)
-        all_alerts.extend(alerts)
-    detect_ms = (_time.perf_counter() - t1) * 1000
+        with BGPStore(fixture) as store:
+            rows = store.query(
+                "SELECT timestamp_us, prefix, peer_as, as_path FROM bgp_records "
+                "WHERE update_type='A' AND as_path IS NOT NULL "
+                "  AND timestamp_us >= ? AND timestamp_us < ?",
+                [window_start_us, window_end_us],
+            )
+        with ASRelStore(asrel_p) as ars:
+            rels = ASRelationshipMap.from_store(ars)
+        paths = []
+        for ts, p, peer, asp in rows:
+            asns = parse_as_path(str(asp))
+            if asns:
+                paths.append(
+                    ObservedPath(prefix=str(p), asns=asns, peer_as=int(peer), timestamp_us=int(ts))
+                )
+        load_ms = (_time.perf_counter() - t0) * 1000
+        console.print(
+            f"  [green]+[/] loaded fixture        "
+            f"[bold]{len(rows)}[/] announces, "
+            f"[bold]{len(paths)}[/] valid paths "
+            f"[dim]({load_ms:.1f}ms)[/]"
+        )
+        console.print(
+            f"  [green]+[/] loaded AS-rels       "
+            f"[bold]{len(rels.pairs)}[/] AS-pairs (CAIDA serial-2)"
+        )
+
+        t1 = _time.perf_counter()
+        valley_alerts = RouteLeakDetector(rels=rels).score_paths(paths)
+        cones = CustomerConeMap.from_relationships(rels)
+        cone_alerts = CustomerConeLeakDetector(cones=cones).score_paths(paths)
+        by_detector["route_leak"] = len(valley_alerts)
+        by_detector["customer_cone_leak"] = len(cone_alerts)
+        # Use whichever fired (cone is the catch-all that fires on
+        # cases standard valley-free can't see, like google_ntt_2017).
+        all_alerts = valley_alerts if len(valley_alerts) >= len(cone_alerts) else cone_alerts
+        detectors_run = 2
+        detect_ms = (_time.perf_counter() - t1) * 1000
 
     crit = sum(1 for a in all_alerts if a.severity == "critical")
     warn = sum(1 for a in all_alerts if a.severity == "warning")
     info = sum(1 for a in all_alerts if a.severity == "info")
     console.print(
-        f"  [green]+[/] ran 2 detectors        "
+        f"  [green]+[/] ran {detectors_run} detectors        "
         f"[bold red]{crit}[/] critical · "
         f"[bold yellow]{warn}[/] warning · "
         f"[bold cyan]{info}[/] info "
@@ -1219,24 +1508,48 @@ def demo(
     )
     console.print()
 
+    # ----- Hijacker AS path callout (pulled from real BGP data) -----
+    attacker_asn = meta.get("attacker_asn")
+    hijack_prefix = meta.get("hijack_prefix")
+    path_note = meta.get("path_note", "")
+    if attacker_asn is not None:
+        _demo_render_hijack_path(fixture, int(attacker_asn), hijack_prefix, path_note)
+
     # ----- Alert table -----
     if all_alerts:
-        _demo_render_alerts(all_alerts)
+        _demo_render_alerts(all_alerts, show_all=show_all, incident_prefix=hijack_prefix)
     else:
         console.print("[dim]No alerts in window.[/]")
 
-    # ----- Footer with detection summary -----
+    # ----- Verdict panel: color + emoji track outcome -----
     console.print()
-    fired = [k for k, v in by_detector.items() if v > 0]
+    fired_detectors = [k for k, v in by_detector.items() if v > 0]
     detector_summary = ", ".join(f"{k}={v}" for k, v in by_detector.items() if v > 0)
+    # For leak incidents the headline alert severity is "warning"
+    # (leak detectors don't escalate to critical), so a leak that
+    # fires gets a HIJACK/LEAK DETECTED verdict, not "Warnings only".
+    leak_fired = incident_type == "leak" and any(v > 0 for v in by_detector.values())
+    if crit > 0:
+        verdict_color = "red"
+        verdict_label = "[bold red]✗ HIJACK DETECTED[/]"
+    elif leak_fired:
+        verdict_color = "red"
+        verdict_label = "[bold red]✗ LEAK DETECTED[/]"
+    elif warn > 0:
+        verdict_color = "yellow"
+        verdict_label = "[bold yellow]⚠ Warnings only[/]"
+    else:
+        verdict_color = "green"
+        verdict_label = "[bold green]✓ Clean window[/]"
     if not detector_summary:
-        detector_summary = "[dim]nothing[/]"
+        detector_summary = "[dim]nothing fired[/]"
     summary = (
-        f"[bold green]Detected[/]: {detector_summary}"
-        + f"  [dim]·[/]  {len(fired)}/{len(detectors)} detector(s) fired"
+        f"{verdict_label}  [dim]·[/]  {detector_summary}"
+        + f"  [dim]·[/]  {len(fired_detectors)}/{detectors_run} detector(s)"
         + f"  [dim]·[/]  {(load_ms + detect_ms):.1f}ms wall"
     )
-    console.print(Panel(summary, border_style="green", expand=False))
+    console.print(Panel(summary, border_style=verdict_color, expand=False))
+
     if incident_id == "youtube_pakistan_2008":
         console.print(
             "[dim]Reproduce live: "
@@ -1244,12 +1557,10 @@ def demo(
             "-H 'Content-Type: application/json' "
             '-d \'{"start_iso":"2008-02-24T18:45:00Z","duration_s":300}\'[/]'
         )
-    else:
-        console.print("[dim]Try another incident:[/] [cyan]netpulse demo --incident <id>[/]")
     console.print(
-        "[dim]Stream-latency benchmark (per-record):[/] "
-        "[cyan]netpulse benchmark stream-latency "
-        "--incidents data/incidents --baseline data/baselines/yt_rib_filtered.duckdb[/]"
+        "[dim]More:[/] [cyan]netpulse demo --list[/]"
+        "  [dim]·[/]  [cyan]netpulse demo --incident <id>[/]"
+        "  [dim]·[/]  [cyan]netpulse demo --all[/]"
     )
 
 
