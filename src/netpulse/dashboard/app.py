@@ -20,7 +20,7 @@ import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-import streamlit as st  # type: ignore[import-not-found]
+import streamlit as st
 
 from netpulse import __version__
 from netpulse.dashboard.data import bucketize, load_alerts, summarize_window

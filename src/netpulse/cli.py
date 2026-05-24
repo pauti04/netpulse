@@ -1051,11 +1051,23 @@ def serve(
     ] = None,
     host: Annotated[str, typer.Option("--host", help="Bind address.")] = "127.0.0.1",
     port: Annotated[int, typer.Option("--port", help="TCP port.")] = 8000,
+    log_format: Annotated[
+        str,
+        typer.Option(
+            "--log-format",
+            help="'json' (structured, default) or 'text' (human-readable).",
+        ),
+    ] = "json",
 ) -> None:
     """Serve BGP detectors as a FastAPI app (POST /detect/bgp, GET /health, GET /alerts)."""
     import uvicorn
 
     from netpulse.api.app import build_app
+    from netpulse.observability import configure_logging
+
+    if log_format not in ("json", "text"):
+        raise typer.BadParameter("--log-format must be 'json' or 'text'")
+    configure_logging(json_mode=(log_format == "json"))
 
     api = build_app(
         store_path=store_path,

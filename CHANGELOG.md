@@ -9,6 +9,30 @@ deployment has soaked, an initial 1.0 will lock the schema.
 ## [unreleased]
 
 ### Added (since 0.0.1)
+- **Streamlit alert console.** `netpulse dashboard --history alerts.duckdb`
+  launches a web UI over the alert-history DuckDB: alerts-over-time
+  bar chart with adjustable bucketing, by-detector and by-severity
+  breakdowns, top-entities table, sidebar filters (date range,
+  detector substring, severity). Pure-Python data layer (`netpulse.
+  dashboard.data`) is unit-testable without a Streamlit runtime;
+  Streamlit itself is an optional `dashboard` extra so the core
+  install stays lean. 8 new tests covering bucketize edge cases and
+  summarize_window sort order.
+- **Structured JSON logging + request middleware.** New
+  `netpulse.observability` exposes `configure_logging(json_mode=...)`
+  and `RequestLoggingMiddleware`. Every HTTP request now logs with a
+  stable `x-request-id` (echoed back to the client), method, path,
+  status, and duration_ms. `netpulse serve --log-format json|text`
+  toggles structured vs human-readable output.
+- **Per-endpoint request-duration histogram** in the metrics surface.
+  `netpulse_request_duration_seconds` with default buckets at 1 ms →
+  10 s lets an operator graph p50/p95/p99 latency per endpoint via
+  Prometheus' `histogram_quantile`.
+- **`GET /ready`** liveness/readiness split. `/health` returns 200 as
+  long as the process is alive; `/ready` opens the BGP DuckDB store
+  and returns 503 if it can't query a count. Fly.io's `fly.toml` now
+  has two HTTP checks so a corrupt fixture routes traffic away from
+  the machine without restart-looping.
 - **Persistent alert history.** `AlertHistoryStore` (DuckDB-backed) and
   `HistoryRecorder` (publisher wrapper) record every emitted alert.
   `netpulse stream --history <path>` and `netpulse serve --history

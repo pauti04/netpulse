@@ -20,6 +20,7 @@ from netpulse.detectors.moas import MOASDetector
 from netpulse.detectors.subprefix import SubPrefixHijackDetector
 from netpulse.detectors.withdraw_spike import WithdrawSpikeDetector
 from netpulse.features.bgp import BGPWindowFeatures, extract_bgp_features
+from netpulse.observability import RequestLoggingMiddleware
 from netpulse.storage.duckdb_store import BGPStore
 
 
@@ -107,11 +108,22 @@ def build_app(
     baseline_prefixes_gauge = metrics.gauge(
         "netpulse_baseline_prefixes", "Sub-prefix baseline size at startup."
     )
+    request_duration = metrics.histogram(
+        "netpulse_request_duration_seconds",
+        "Per-endpoint request duration in seconds.",
+    )
     if baseline is not None:
         baseline_prefixes_gauge.set(float(len(baseline.origins)))
 
+    api.add_middleware(RequestLoggingMiddleware, duration_histogram=request_duration)
+
     @api.get("/health")
     def health() -> dict[str, str | int]:
+        """Liveness check: returns 200 as long as the process is up.
+
+        Fly.io's health check is wired to this endpoint -- it should
+        never block on DB / fixture state; readiness is /ready.
+        """
         requests_total.inc(label_value="health")
         return {
             "status": "ok",
@@ -120,6 +132,28 @@ def build_app(
             "baseline_prefixes": len(baseline.origins) if baseline is not None else 0,
             "history": str(history_path) if history_path is not None else "",
         }
+
+    @api.get("/ready")
+    def ready() -> dict[str, str | int]:
+        """Readiness check: 200 only if the BGP store opens cleanly.
+
+        Distinct from /health so the load balancer can route traffic
+        away from a machine whose backing store has gone bad (e.g.
+        DuckDB file truncated mid-deploy) without killing the
+        container outright.
+        """
+        requests_total.inc(label_value="ready")
+        try:
+            with BGPStore(store_path) as bs:
+                # Cheap COUNT(*) just to confirm the table is queryable.
+                _ = bs.count()
+            return {
+                "status": "ready",
+                "store": str(store_path),
+                "baseline_prefixes": len(baseline.origins) if baseline is not None else 0,
+            }
+        except Exception as e:  # noqa: BLE001 -- intentional broad catch
+            raise HTTPException(status_code=503, detail=f"store not ready: {e}") from e
 
     @api.get("/metrics", response_class=PlainTextResponse)
     def metrics_endpoint() -> str:
