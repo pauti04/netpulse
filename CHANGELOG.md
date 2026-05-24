@@ -8,6 +8,21 @@ deployment has soaked, an initial 1.0 will lock the schema.
 
 ## [unreleased]
 
+### Changed
+- **`netpulse demo` got a rewrite.** The output is now a Rich Panel
+  with the incident story + victim/attacker callout, three
+  loading-stage lines with millisecond timing, a colorized alert
+  Table grouped by severity (critical = red, warning = yellow,
+  info = cyan), and a green summary panel with detectors-fired
+  count and total wall time. New `--incident <id>` flag plays any
+  of the 5 corpus incidents through the same pipeline -- the
+  default still runs against the bundled YouTube fixture with no
+  setup, but `--incident indosat_2014` shows 19 critical alerts
+  if the data is local. Unknown incident ids print a friendly
+  error listing what is available. `docs/tapes/demo.tape` +
+  `docs/tapes/tour.tape` updated, `docs/img/demo.gif` +
+  `docs/img/tour.gif` re-rendered.
+
 ### Added (since 0.0.1)
 - **ARTEMIS head-to-head scaffolding.**
   `scripts/artemis_export_config.py` converts any NetPulse labeled

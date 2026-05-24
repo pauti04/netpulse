@@ -6,7 +6,7 @@ import os
 import re
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 from rich.console import Console
@@ -975,10 +975,111 @@ def stream(
             history_store.close()
 
 
+_DEMO_STORIES: dict[str, dict[str, Any]] = {
+    "youtube_pakistan_2008": {
+        "headline": "YouTube / Pakistan Telecom hijack",
+        "when": "2008-02-24 · 18:47:57 UTC onset",
+        "story": (
+            "Pakistan Telecom (AS17557) tried to block YouTube domestically by "
+            "null-routing 208.65.153.0/24 inside their network. Their upstream "
+            "PCCW (AS3491) re-announced the route globally. For ~two hours, "
+            "YouTube was unreachable across the internet."
+        ),
+        "fixture_rel": "data/fixtures/youtube_2008_demo.duckdb",
+        "window_start_us": 1_203_878_700_000_000,
+        "window_end_us": 1_203_879_000_000_000,
+        "onset_us": 1_203_878_877_000_000,
+        "victim": "208.65.152.0/22 -> AS36561 (YouTube)",
+        "attacker": "AS17557 (Pakistan Telecom)",
+    },
+}
+
+
+def _demo_render_panel(
+    inc_id: str,
+    headline: str,
+    when: str,
+    story: str,
+    victim: str,
+    attacker: str,
+) -> None:
+    """Show the narrative header before any detection runs."""
+    from rich.padding import Padding
+    from rich.panel import Panel
+
+    title = f"[bold cyan]NetPulse[/] [dim]·[/] {inc_id}"
+    body = (
+        f"[bold white]{headline}[/]\n"
+        f"[dim]{when}[/]\n\n"
+        f"{story}\n\n"
+        f"[dim]Victim:[/]   {victim}\n"
+        f"[dim]Attacker:[/] {attacker}"
+    )
+    console.print(
+        Padding(Panel(body, title=title, border_style="cyan", expand=False), (0, 0, 1, 0))
+    )
+
+
+def _demo_render_alerts(alerts: list[Any]) -> None:
+    """Render alerts as a colorized Rich Table grouped by severity.
+
+    Takes ``list[Any]`` rather than ``list[Alert]`` to avoid a heavy
+    top-level import; the function only relies on the four public
+    Alert attributes that have stable names since 0.0.1.
+    """
+    from rich.table import Table
+
+    severity_color = {"critical": "red", "warning": "yellow", "info": "cyan"}
+    severity_order = {"critical": 0, "warning": 1, "info": 2}
+    sorted_alerts = sorted(alerts, key=lambda a: severity_order.get(a.severity, 3))
+
+    table = Table(
+        title=None,
+        show_header=True,
+        header_style="bold",
+        border_style="dim",
+        row_styles=["", "dim"],
+        expand=False,
+    )
+    table.add_column("severity", style="bold", width=9)
+    table.add_column("detector", style="cyan", width=18)
+    table.add_column("entity", style="white", width=22, overflow="fold")
+    table.add_column("summary", style="white", overflow="fold")
+
+    for a in sorted_alerts:
+        sev = a.severity
+        color = severity_color.get(sev, "white")
+        table.add_row(
+            f"[{color}]{sev}[/]",
+            a.detector,
+            a.entity,
+            a.summary,
+        )
+    console.print(table)
+
+
 @app.command("demo")
-def demo() -> None:
-    """Run the YouTube/Pakistan 2008 hijack against a bundled fixture (~1s, no setup)."""
-    from netpulse.alerts.publishers import StdoutPublisher
+def demo(
+    incident_id: Annotated[
+        str,
+        typer.Option(
+            "--incident",
+            help="Incident id to replay. Defaults to youtube_pakistan_2008 (bundled).",
+        ),
+    ] = "youtube_pakistan_2008",
+) -> None:
+    """Run a labeled BGP incident against a bundled or local fixture (~1s, no setup).
+
+    The default replays the canonical YouTube/Pakistan 2008 hijack against
+    the bundled real-data fixture. Pass `--incident <id>` to replay any
+    other corpus incident you have fetched locally (e.g.
+    `--incident indosat_2014`); the command falls back with a helpful
+    error if the incident's DuckDB store is missing.
+    """
+    import time as _time
+
+    from rich.panel import Panel
+
     from netpulse.detectors.baseline import BGPBaseline
     from netpulse.detectors.moas import MOASDetector
     from netpulse.detectors.subprefix import SubPrefixHijackDetector
@@ -986,46 +1087,169 @@ def demo() -> None:
     from netpulse.storage.duckdb_store import BGPStore
 
     repo_root = Path(__file__).resolve().parent.parent.parent
-    fixture = repo_root / "data" / "fixtures" / "youtube_2008_demo.duckdb"
+
+    # The YouTube case has a baked-in narrative; other incidents fall
+    # back to a generic story sourced from the incident JSON.
+    if incident_id in _DEMO_STORIES:
+        meta = _DEMO_STORIES[incident_id]
+        fixture = repo_root / meta["fixture_rel"]
+        window_start_us = int(meta["window_start_us"])
+        window_end_us = int(meta["window_end_us"])
+        baseline = BGPBaseline.build({"208.65.152.0/22": {36561}})
+        _demo_render_panel(
+            inc_id=incident_id,
+            headline=str(meta["headline"]),
+            when=str(meta["when"]),
+            story=str(meta["story"]),
+            victim=str(meta["victim"]),
+            attacker=str(meta["attacker"]),
+        )
+    else:
+        # Resolve via the corpus loader so any user-fetched incident
+        # plays through the same pipeline.
+        from netpulse.benchmark.loader import load_incident
+
+        inc_path = repo_root / "data" / "incidents" / f"{incident_id}.json"
+        if not inc_path.exists():
+            console.print(
+                f"[red]No labeled incident named '{incident_id}' under data/incidents/.[/]"
+            )
+            console.print(
+                "[dim]Known incidents: "
+                + ", ".join(
+                    sorted(
+                        p.stem
+                        for p in (repo_root / "data" / "incidents").glob("*.json")
+                        if not p.name.startswith("_")
+                    )
+                )
+                + "[/]"
+            )
+            raise typer.Exit(1)
+        inc = load_incident(inc_path)
+
+        # Resolve store + baseline relative to data/incidents/ (same convention
+        # the corpus benchmark runner uses).
+        if inc.bgp_store_path is None:
+            console.print(f"[red]Incident {incident_id} has no bgp_store_path; demo needs one.[/]")
+            raise typer.Exit(1)
+        fixture = (inc_path.parent / inc.bgp_store_path).resolve()
+        window_start_us = inc.start_us
+        window_end_us = inc.end_us
+
+        # Build baseline from baseline_path if present; else use an empty one.
+        if inc.baseline_path is not None:
+            baseline_p = (inc_path.parent / inc.baseline_path).resolve()
+            if baseline_p.exists():
+                with BGPStore(baseline_p) as bs:
+                    baseline = BGPBaseline.from_store(bs)
+            else:
+                baseline = BGPBaseline.build({})
+        else:
+            baseline = BGPBaseline.build({})
+
+        victim = f"AS{inc.victim_asn}" if inc.victim_asn is not None else "[dim]see notes[/]"
+        attacker = f"AS{inc.attacker_asn}" if inc.attacker_asn is not None else "[dim]see notes[/]"
+        start_iso = datetime.fromtimestamp(inc.start_us / 1_000_000, tz=UTC).strftime(
+            "%Y-%m-%d %H:%M UTC"
+        )
+        if inc.onset_us is not None:
+            onset_iso = datetime.fromtimestamp(inc.onset_us / 1_000_000, tz=UTC).strftime(
+                "%H:%M:%S UTC"
+            )
+            when = f"{start_iso} · {onset_iso} onset"
+        else:
+            when = start_iso
+        # Two-sentence trim of the notes for the demo card.
+        first_sentence = (inc.notes.split(". ")[0] + ".") if inc.notes else "(no notes)"
+        _demo_render_panel(
+            inc_id=incident_id,
+            headline=inc.name,
+            when=when,
+            story=first_sentence,
+            victim=victim,
+            attacker=attacker,
+        )
+
     if not fixture.exists():
-        console.print(f"[red]Demo fixture missing at {fixture}.[/]")
+        console.print(f"[red]Fixture missing at {fixture}.[/]")
         console.print(
-            "Run from a clone of the repo, or regenerate via scripts/extract_demo_fixture.py."
+            "[dim]Run from a clone of the repo, or fetch the incident's BGP data via\n"
+            "`netpulse ingest bgp ...` per the incident JSON's notes field.[/]"
         )
         raise typer.Exit(1)
 
-    # 2008-02-24 18:45:00 UTC -- 18:50:00 UTC; 18:47:57 UTC is the documented onset.
-    window_start_us = 1_203_878_700_000_000
-    window_end_us = 1_203_879_000_000_000
-    onset_us = 1_203_878_877_000_000
-
-    baseline = BGPBaseline.build({"208.65.152.0/22": {36561}})
-
+    # ----- Loading -----
+    t0 = _time.perf_counter()
     with BGPStore(fixture) as store:
         feats = extract_bgp_features(store, window_start_us, window_end_us)
+    load_ms = (_time.perf_counter() - t0) * 1000
 
-    console.print("[bold]NetPulse demo[/] — 5-minute RRC00 slice around the YouTube hijack.")
     console.print(
-        f"  records:    {feats.announce_total} announces / {feats.withdraw_total} withdraws"
+        f"  [green]+[/] loaded fixture        "
+        f"[bold]{feats.announce_total}[/]A · "
+        f"[bold]{feats.withdraw_total}[/]W · "
+        f"[bold]{len(feats.origins_by_prefix)}[/] distinct prefixes "
+        f"[dim]({load_ms:.1f}ms)[/]"
     )
-    console.print(f"  prefixes:   {len(feats.origins_by_prefix)} distinct")
-    console.print("  baseline:   1 supernet ([cyan]208.65.152.0/22 -> AS36561[/])")
-    console.print("  onset:      2008-02-24 18:47:57 UTC (AS17557 announces 208.65.153.0/24)")
-    console.print()
+    console.print(
+        f"  [green]+[/] built baseline        [bold]{len(baseline.origins)}[/] supernet(s)"
+    )
 
+    # ----- Detecting -----
+    t1 = _time.perf_counter()
     detectors = [MOASDetector(), SubPrefixHijackDetector(baseline)]
-    publisher = StdoutPublisher(console=console)
+    all_alerts: list[Any] = []
     by_detector: dict[str, int] = {}
     for det in detectors:
         alerts = det.score(feats)
         by_detector[det.name] = len(alerts)
-        publisher.publish_all(alerts)
+        all_alerts.extend(alerts)
+    detect_ms = (_time.perf_counter() - t1) * 1000
 
-    console.print()
+    crit = sum(1 for a in all_alerts if a.severity == "critical")
+    warn = sum(1 for a in all_alerts if a.severity == "warning")
+    info = sum(1 for a in all_alerts if a.severity == "info")
     console.print(
-        "[bold green]Result[/]: "
-        + ", ".join(f"{n}={k}" for n, k in by_detector.items())
-        + f" -- onset at us={onset_us}, window_end us={window_end_us}"
+        f"  [green]+[/] ran 2 detectors        "
+        f"[bold red]{crit}[/] critical · "
+        f"[bold yellow]{warn}[/] warning · "
+        f"[bold cyan]{info}[/] info "
+        f"[dim]({detect_ms:.1f}ms)[/]"
+    )
+    console.print()
+
+    # ----- Alert table -----
+    if all_alerts:
+        _demo_render_alerts(all_alerts)
+    else:
+        console.print("[dim]No alerts in window.[/]")
+
+    # ----- Footer with detection summary -----
+    console.print()
+    fired = [k for k, v in by_detector.items() if v > 0]
+    detector_summary = ", ".join(f"{k}={v}" for k, v in by_detector.items() if v > 0)
+    if not detector_summary:
+        detector_summary = "[dim]nothing[/]"
+    summary = (
+        f"[bold green]Detected[/]: {detector_summary}"
+        + f"  [dim]·[/]  {len(fired)}/{len(detectors)} detector(s) fired"
+        + f"  [dim]·[/]  {(load_ms + detect_ms):.1f}ms wall"
+    )
+    console.print(Panel(summary, border_style="green", expand=False))
+    if incident_id == "youtube_pakistan_2008":
+        console.print(
+            "[dim]Reproduce live: "
+            "[/][cyan]curl -X POST https://netpulse-pauti.fly.dev/detect/bgp "
+            "-H 'Content-Type: application/json' "
+            '-d \'{"start_iso":"2008-02-24T18:45:00Z","duration_s":300}\'[/]'
+        )
+    else:
+        console.print("[dim]Try another incident:[/] [cyan]netpulse demo --incident <id>[/]")
+    console.print(
+        "[dim]Stream-latency benchmark (per-record):[/] "
+        "[cyan]netpulse benchmark stream-latency "
+        "--incidents data/incidents --baseline data/baselines/yt_rib_filtered.duckdb[/]"
     )
 
 

@@ -104,12 +104,16 @@ Atlas loss spike, and DNS reachability (active probes via
 
 ```sh
 git clone https://github.com/pauti04/netpulse && cd netpulse
-uv sync          # core install (no native deps)
-uv run netpulse demo
+uv sync                                # core install (no native deps)
+uv run netpulse demo                   # 2008 YouTube hijack, bundled
+uv run netpulse demo --incident indosat_2014    # any corpus incident
 ```
 
-That replays a 5-minute RRC00 slice around the YouTube hijack onset
-against bundled real data and prints alerts. Under one second.
+The bundled demo replays a 5-minute RRC00 slice around the YouTube
+hijack onset, then renders a Rich panel with the story, a colorized
+alert table by severity, and a summary line with wall-clock timing.
+Under one second. `--incident <id>` swaps in any of the 5 labeled
+corpus incidents you have fetched locally.
 
 For a live tap of the global routing table:
 
