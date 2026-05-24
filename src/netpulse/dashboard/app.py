@@ -153,9 +153,7 @@ def main() -> None:
     # ----- Top entities -----
     st.subheader("Top entities")
     if summary.top_entities:
-        st.table(
-            [{"entity": ent, "alerts": count} for ent, count in summary.top_entities]
-        )
+        st.table([{"entity": ent, "alerts": count} for ent, count in summary.top_entities])
 
     # ----- Raw alert table -----
     st.subheader("Raw alerts")

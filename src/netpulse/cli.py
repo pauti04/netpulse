@@ -1110,16 +1110,12 @@ def dashboard(
 
     streamlit_bin = shutil.which("streamlit")
     if streamlit_bin is None:
-        console.log(
-            "[red]streamlit is not installed. Run `uv sync --extra dashboard` first.[/red]"
-        )
+        console.log("[red]streamlit is not installed. Run `uv sync --extra dashboard` first.[/red]")
         raise typer.Exit(code=2)
 
     app_path = Path(__file__).parent / "dashboard" / "app.py"
     env = dict(**os.environ, NETPULSE_DASHBOARD_HISTORY=str(history_path.resolve()))
-    console.log(
-        f"launching Streamlit on http://{host}:{port} (history={history_path})"
-    )
+    console.log(f"launching Streamlit on http://{host}:{port} (history={history_path})")
     cmd = [
         streamlit_bin,
         "run",

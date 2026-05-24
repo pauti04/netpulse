@@ -9,6 +9,24 @@ deployment has soaked, an initial 1.0 will lock the schema.
 ## [unreleased]
 
 ### Added (since 0.0.1)
+- **ARTEMIS head-to-head scaffolding.**
+  `scripts/artemis_export_config.py` converts any NetPulse labeled
+  incident JSON + baseline DuckDB into an ARTEMIS-shaped YAML rule
+  config (`prefixes:` + `asns:` + `rules:` with YAML anchors).
+  `scripts/artemis_compare.py` reads NetPulse's
+  `docs/corpus_benchmark.json` plus ARTEMIS hijack dumps and emits a
+  per-incident head-to-head row (NetPulse outcome + alert count vs
+  ARTEMIS fired + alert count + native hijack-type label). The full
+  methodology + ARTEMIS docker-compose recipe lives in
+  `docs/artemis-comparison-plan.md`. Six new tests on the exporter +
+  comparison runner.
+- **Corpus-expansion playbook** at `docs/corpus-expansion-playbook.md`
+  captures everything learned moving the corpus from N=4 to N=5:
+  the filter-quoting trap (`path "_4761$"` not `path '_4761$'`),
+  RIS collector geography (which collector saw which incident),
+  the /24 prefix-length filter that hides /32-grain hijacks like
+  Cloudflare 2024, and the hijack-vs-deaggregation-leak distinction
+  that knocked Telekom Malaysia 2015 out of corpus consideration.
 - **Indosat 2014 MOAS hijack** added to the labeled-incident corpus.
   AS4761 re-announced ~3,700 prefixes outside its 114.4.0.0/15
   allocation around 18:25 UTC on 2014-04-02 (51,203 RRC00 records

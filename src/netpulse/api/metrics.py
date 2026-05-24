@@ -18,7 +18,18 @@ from dataclasses import dataclass, field
 # heaviest (sub-prefix detect with a fat baseline) sits in the hundreds
 # of ms range; anything above 5s is a clear regression.
 DEFAULT_BUCKETS: tuple[float, ...] = (
-    0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
+    0.001,
+    0.005,
+    0.01,
+    0.025,
+    0.05,
+    0.1,
+    0.25,
+    0.5,
+    1.0,
+    2.5,
+    5.0,
+    10.0,
 )
 
 
@@ -102,9 +113,7 @@ class MetricsRegistry:
     ) -> _Histogram:
         with self._lock:
             if name not in self._histograms:
-                self._histograms[name] = _Histogram(
-                    name=name, help_text=help_text, buckets=buckets
-                )
+                self._histograms[name] = _Histogram(name=name, help_text=help_text, buckets=buckets)
             return self._histograms[name]
 
     def render(self) -> str:
@@ -131,12 +140,8 @@ class MetricsRegistry:
                 for label_value, (counts, total, n) in sorted(h.series.items()):
                     ev = label_value.replace("\\", "\\\\").replace('"', '\\"')
                     for i, upper in enumerate(h.buckets):
-                        lines.append(
-                            f'{h.name}_bucket{{endpoint="{ev}",le="{upper}"}} {counts[i]}'
-                        )
-                    lines.append(
-                        f'{h.name}_bucket{{endpoint="{ev}",le="+Inf"}} {n}'
-                    )
+                        lines.append(f'{h.name}_bucket{{endpoint="{ev}",le="{upper}"}} {counts[i]}')
+                    lines.append(f'{h.name}_bucket{{endpoint="{ev}",le="+Inf"}} {n}')
                     lines.append(f'{h.name}_sum{{endpoint="{ev}"}} {total}')
                     lines.append(f'{h.name}_count{{endpoint="{ev}"}} {n}')
         return "\n".join(lines) + "\n"

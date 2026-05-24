@@ -31,7 +31,6 @@ from netpulse.benchmark.loader import load_incidents
 from netpulse.detectors.baseline import BGPBaseline
 from netpulse.detectors.customer_cone import CustomerConeMap
 from netpulse.detectors.customer_cone_leak import CustomerConeLeakDetector
-from netpulse.detectors.moas import MOASDetector
 from netpulse.detectors.route_leak import (
     ASRelationshipMap,
     ObservedPath,
@@ -39,7 +38,6 @@ from netpulse.detectors.route_leak import (
     parse_as_path,
 )
 from netpulse.detectors.subprefix import SubPrefixHijackDetector
-from netpulse.detectors.withdraw_spike import WithdrawSpikeDetector
 from netpulse.features.bgp import extract_bgp_features
 from netpulse.storage.asrel_store import ASRelStore
 from netpulse.storage.duckdb_store import BGPStore
@@ -79,9 +77,7 @@ def score_subprefix_incident(inc: Incident) -> IncidentResult:
     on_target = 0
     other = 0
     for a in alerts:
-        if inc.prefix is not None and a.entity == inc.prefix:
-            on_target += 1
-        elif inc.prefix is None and a.detector == "subprefix_hijack":
+        if inc.prefix is not None and a.entity == inc.prefix or inc.prefix is None and a.detector == "subprefix_hijack":
             on_target += 1
         else:
             other += 1
