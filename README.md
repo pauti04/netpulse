@@ -104,26 +104,36 @@ Atlas loss spike, and DNS reachability (active probes via
 
 ```sh
 git clone https://github.com/pauti04/netpulse && cd netpulse
-uv sync                                              # core install (no native deps)
-uv run netpulse demo                                 # 2008 YouTube hijack (bundled)
-uv run netpulse demo --list                          # all 5 curated incidents
-uv run netpulse demo --incident mainone_google_leak_2018   # LEAK DETECTED verdict
+uv sync                                  # core install (no native deps)
+uv run netpulse demo                     # 2008 YouTube hijack (bundled)
+uv run netpulse demo --list              # all 5 curated incidents
+uv run netpulse demo --incident all      # play all 5 + roll-up table
 ```
 
 Each demo prints a story panel describing the incident, pulls the
-actual hijacker AS path from the archive (`AS3333 → AS12859 → AS6461
-→ AS3491 → AS17557 ←ORIGIN`), runs the matching detectors (hijack
-vs leak), and lands a color-coded verdict panel: **HIJACK DETECTED**,
-**LEAK DETECTED**, or **Clean window**. Noise-filtered by default;
-add `--all` to see every alert.
+actual hijacker AS path from the archive (with friendly AS names —
+`AS17557 (Pakistan Telecom) ←ORIGIN`), runs the matching detectors
+(hijack vs leak via auto-dispatch), lands a color-coded verdict
+panel — **HIJACK DETECTED**, **LEAK DETECTED**, or **Clean window** —
+and prints the stream-latency from documented onset
+(`0µs from onset` is the headline number on the sub-prefix cases).
+Noise-filtered by default; add `--all` to see every alert.
 
-| Incident                       | Detectors fired                          | Verdict          |
-|--------------------------------|------------------------------------------|------------------|
-| `youtube_pakistan_2008`        | moas=2, subprefix_hijack=1               | HIJACK DETECTED  |
-| `indosat_2014`                 | subprefix_hijack=19 (both branches)      | HIJACK DETECTED  |
-| `myetherwallet_2018`           | subprefix_hijack=5                       | HIJACK DETECTED  |
-| `google_ntt_leak_2017`         | customer_cone_leak=124,145               | LEAK DETECTED    |
-| `mainone_google_leak_2018`     | route_leak=1,985, customer_cone_leak=4,100 | LEAK DETECTED  |
+| Incident                       | Detectors fired                          | Verdict          | Stream latency |
+|--------------------------------|------------------------------------------|------------------|----------------|
+| `youtube_pakistan_2008`        | moas=2, subprefix_hijack=1               | HIJACK DETECTED  | **0 µs**       |
+| `indosat_2014`                 | subprefix_hijack=19 (both branches)      | HIJACK DETECTED  | 99 s¹          |
+| `myetherwallet_2018`           | subprefix_hijack=5                       | HIJACK DETECTED  | **0 µs**       |
+| `google_ntt_leak_2017`         | customer_cone_leak=124,145               | LEAK DETECTED    | n/a²           |
+| `mainone_google_leak_2018`     | route_leak=1,985, customer_cone_leak=4,100 | LEAK DETECTED  | n/a²           |
+
+¹ Indosat's first AS4761 announcement is on a Bangladesh prefix not in
+the small hand-curated baseline; the detector fires on the first
+covered prefix 99 s later. Wider baseline coverage would drop this
+to 0 µs.
+
+² Stream-latency only measured for sub-prefix hijacks; leaks use a
+different per-record harness.
 
 For a live tap of the global routing table:
 

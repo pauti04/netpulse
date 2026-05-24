@@ -9,6 +9,19 @@ deployment has soaked, an initial 1.0 will lock the schema.
 ## [unreleased]
 
 ### Changed
+- **`netpulse demo` round-3 polish:**
+  - **`--incident all`** plays all 5 corpus incidents back-to-back
+    with a horizontal rule between each and a final Rich roll-up
+    table summarizing verdict, alerts fired per detector, wall time,
+    and stream-latency per incident.
+  - **Friendly AS names** in the hijacker path panel: the attacker
+    AS now reads as `AS17557 (Pakistan Telecom)` etc. — 30+ ASes
+    curated in `_AS_NAMES`. Other hops stay numeric to keep the
+    line scannable.
+  - **Stream-latency from documented onset** added to the verdict
+    Panel for hijack incidents. Runs `replay_subprefix_streaming`
+    after the batch detection and reports the microsecond delta
+    (e.g. `0µs from onset` on YouTube and MyEtherWallet).
 - **`netpulse demo` is now a 10/10 instrument-grade demo.**
   Curated narrative + automatic-detector-routing for all 5 corpus
   incidents (3 hijacks + 2 leaks):

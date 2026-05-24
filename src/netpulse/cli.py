@@ -975,6 +975,57 @@ def stream(
             history_store.close()
 
 
+# Friendly names for ASes the demo regularly references in hijacker
+# paths. Sourced from PeeringDB / public WHOIS; trimmed to operator
+# brand (or country + ISP for less-recognizable orgs). Used in the
+# AS-path callout to make the chain readable at a glance.
+_AS_NAMES: dict[int, str] = {
+    # Hijack-case actors
+    17557: "Pakistan Telecom",
+    36561: "YouTube",
+    3491: "PCCW",
+    3333: "RIPE NCC",
+    12859: "BIT",
+    6461: "Zayo",
+    # Indosat 2014
+    4761: "PT Indosat",
+    45305: "PT Cyberindo Aditama",
+    45348: "PT MyRepublic Indonesia",
+    45454: "XL Axiata",
+    2914: "NTT",
+    9304: "Hutchison Global",
+    7713: "Telin (Indosat Singapore)",
+    17922: "Telkom Indonesia",
+    # MyEtherWallet 2018
+    10297: "eNet",
+    16509: "Amazon AWS",
+    6881: "Petrolink",
+    15685: "Edge Web Hosting",
+    6939: "Hurricane Electric",
+    # Google/NTT 2017
+    15169: "Google",
+    4713: "NTT OCN",
+    701: "Verizon",
+    1103: "SURFnet",
+    286: "KPN",
+    # MainOne/Google 2018
+    37282: "MainOne",
+    4809: "China Telecom",
+    20485: "Transtelecom",
+    15562: "Schuberg Philis",
+    # Common upstreams
+    3549: "Level 3",
+    13030: "Init7",
+    5408: "GRNET",
+}
+
+
+def _as_with_name(asn: int) -> str:
+    """Render an AS as 'AS<n> (Name)' if known, else 'AS<n>'."""
+    name = _AS_NAMES.get(asn)
+    return f"AS{asn} ({name})" if name else f"AS{asn}"
+
+
 # Curated narratives for the 5 corpus incidents. Each entry pairs a
 # story panel with a SQL filter that finds the canonical hijacker AS
 # path inside the BGP store, so the demo can show the actual record
@@ -1169,10 +1220,15 @@ def _demo_render_hijack_path(
         except ValueError:
             rendered_hops.append(hop)
             continue
+        name = _AS_NAMES.get(asn)
+        # The path can have ~6 hops; printing "AS<n> (Name)" on every
+        # one bloats the line. Render the attacker with its name
+        # bold-red; the rest plain.
         if asn == attacker_asn:
-            rendered_hops.append(f"[bold red]AS{asn}[/]")
+            label = f"[bold red]AS{asn} ({name})[/]" if name else f"[bold red]AS{asn}[/]"
         else:
-            rendered_hops.append(f"AS{asn}")
+            label = f"AS{asn}"
+        rendered_hops.append(label)
     path_str = " [dim]→[/] ".join(rendered_hops) + " [dim]←ORIGIN[/]"
 
     body = f"[bold]{prefix}[/] announced via:\n\n  {path_str}\n\n[dim]{path_note}[/]"
@@ -1285,44 +1341,16 @@ def _demo_render_alerts(
     return len(kept)
 
 
-@app.command("demo")
-def demo(
-    incident_id: Annotated[
-        str,
-        typer.Option(
-            "--incident",
-            help="Incident id to replay. Defaults to youtube_pakistan_2008 (bundled).",
-        ),
-    ] = "youtube_pakistan_2008",
-    show_list: Annotated[
-        bool,
-        typer.Option(
-            "--list",
-            help="List the curated incidents available to --incident, then exit.",
-        ),
-    ] = False,
-    show_all: Annotated[
-        bool,
-        typer.Option(
-            "--all",
-            help=(
-                "Show every alert. Default hides MOAS warnings on "
-                "prefixes unrelated to the incident."
-            ),
-        ),
-    ] = False,
-) -> None:
-    """Replay a labeled BGP incident against a bundled or local fixture (~1s, no setup).
+def _run_one_demo(incident_id: str, show_all: bool, repo_root: Path) -> dict[str, Any]:
+    """Render one full incident demo and return a summary dict.
 
-    The default runs the canonical YouTube/Pakistan 2008 hijack against
-    a bundled real-data fixture. Use ``--incident <id>`` for any of the
-    other 4 curated corpus incidents (run ``--list`` to see them) and
-    ``--all`` to include unrelated MOAS noise.
+    Returns: ``{incident_id, verdict, color, by_detector, crit, warn,
+    wall_ms, latency_us, success}``. ``success=False`` on missing
+    data; the caller decides whether that's fatal.
     """
     import time as _time
 
     from rich.panel import Panel
-    from rich.table import Table
 
     from netpulse.detectors.baseline import BGPBaseline
     from netpulse.detectors.moas import MOASDetector
@@ -1330,41 +1358,11 @@ def demo(
     from netpulse.features.bgp import extract_bgp_features
     from netpulse.storage.duckdb_store import BGPStore
 
-    repo_root = Path(__file__).resolve().parent.parent.parent
-
-    # ----- --list short-circuit -----
-    if show_list:
-        list_table = Table(
-            title="[bold cyan]netpulse demo --incident <id>[/]",
-            border_style="cyan",
-            show_header=True,
-            header_style="bold",
-            expand=False,
-        )
-        list_table.add_column("incident id", style="bold cyan")
-        list_table.add_column("headline", style="white")
-        list_table.add_column("when", style="dim")
-        list_table.add_column("data?", style="white")
-        for inc_id, meta in _DEMO_STORIES.items():
-            fixture_path = repo_root / meta["fixture_rel"]
-            data_status = "[green]bundled[/]" if fixture_path.exists() else "[yellow]fetch first[/]"
-            list_table.add_row(inc_id, meta["headline"], meta["when"], data_status)
-        console.print(list_table)
-        return
-
-    if incident_id not in _DEMO_STORIES:
-        console.print(
-            f"[red]No demo for '{incident_id}'.[/] "
-            f"Known incidents: {', '.join(sorted(_DEMO_STORIES))}"
-        )
-        raise typer.Exit(1)
-
     meta = _DEMO_STORIES[incident_id]
     fixture = repo_root / meta["fixture_rel"]
     window_start_us = int(meta["window_start_us"])
     window_end_us = int(meta["window_end_us"])
 
-    # ----- Story panel -----
     _demo_render_panel(
         inc_id=incident_id,
         headline=str(meta["headline"]),
@@ -1379,10 +1377,19 @@ def demo(
         if incident_id != "youtube_pakistan_2008":
             console.print(
                 "[dim]Fetch the incident's BGP data via the recipe in "
-                f"data/incidents/{incident_id}.json -> notes, "
-                "then re-run.[/]"
+                f"data/incidents/{incident_id}.json → notes, then re-run.[/]"
             )
-        raise typer.Exit(1)
+        return {
+            "incident_id": incident_id,
+            "verdict": "missing",
+            "color": "dim",
+            "by_detector": {},
+            "crit": 0,
+            "warn": 0,
+            "wall_ms": 0.0,
+            "latency_us": None,
+            "success": False,
+        }
 
     incident_type = str(meta.get("incident_type", "hijack"))
 
@@ -1521,6 +1528,40 @@ def demo(
     else:
         console.print("[dim]No alerts in window.[/]")
 
+    # ----- Stream-latency callout (hijack incidents only) -----
+    # Replays the incident record-by-record through the sub-prefix
+    # detector and reports the microsecond delta from documented
+    # onset to first qualifying alert. Caches the result so the
+    # caller can fold it into the summary table.
+    stream_latency_us: int | None = None
+    if (
+        incident_type == "hijack"
+        and "subprefix_hijack" in by_detector
+        and by_detector["subprefix_hijack"] > 0
+    ):
+        try:
+            from netpulse.benchmark.incident import Incident
+            from netpulse.benchmark.streaming_replay import replay_subprefix_streaming
+
+            inc_for_replay = Incident(
+                id=incident_id,
+                name=str(meta["headline"]),
+                kind="hijack",
+                start_us=window_start_us,
+                end_us=window_end_us,
+                expected_detectors=["subprefix_hijack"],
+                source_url="",
+                prefix=meta.get("hijack_prefix"),
+                attacker_asn=meta.get("attacker_asn"),
+                victim_asn=None,
+                onset_us=int(meta.get("onset_us") or window_start_us),
+            )
+            with BGPStore(fixture) as store:
+                sr = replay_subprefix_streaming(inc_for_replay, store, baseline)
+            stream_latency_us = sr.latency_from_onset_us
+        except Exception:
+            stream_latency_us = None
+
     # ----- Verdict panel: color + emoji track outcome -----
     console.print()
     fired_detectors = [k for k, v in by_detector.items() if v > 0]
@@ -1532,23 +1573,182 @@ def demo(
     if crit > 0:
         verdict_color = "red"
         verdict_label = "[bold red]✗ HIJACK DETECTED[/]"
+        verdict_text = "HIJACK"
     elif leak_fired:
         verdict_color = "red"
         verdict_label = "[bold red]✗ LEAK DETECTED[/]"
+        verdict_text = "LEAK"
     elif warn > 0:
         verdict_color = "yellow"
         verdict_label = "[bold yellow]⚠ Warnings only[/]"
+        verdict_text = "warnings"
     else:
         verdict_color = "green"
         verdict_label = "[bold green]✓ Clean window[/]"
+        verdict_text = "clean"
     if not detector_summary:
         detector_summary = "[dim]nothing fired[/]"
+
+    latency_str = ""
+    if stream_latency_us is not None:
+        if stream_latency_us <= 0:
+            latency_str = "  [dim]·[/]  [bold green]0µs from onset[/]"
+        elif stream_latency_us < 1_000_000:
+            latency_str = f"  [dim]·[/]  [green]{stream_latency_us}µs from onset[/]"
+        else:
+            latency_str = f"  [dim]·[/]  {stream_latency_us / 1_000_000:.2f}s from onset"
+
     summary = (
         f"{verdict_label}  [dim]·[/]  {detector_summary}"
         + f"  [dim]·[/]  {len(fired_detectors)}/{detectors_run} detector(s)"
         + f"  [dim]·[/]  {(load_ms + detect_ms):.1f}ms wall"
+        + latency_str
     )
     console.print(Panel(summary, border_style=verdict_color, expand=False))
+
+    return {
+        "incident_id": incident_id,
+        "verdict": verdict_text,
+        "color": verdict_color,
+        "by_detector": dict(by_detector),
+        "crit": crit,
+        "warn": warn,
+        "wall_ms": load_ms + detect_ms,
+        "latency_us": stream_latency_us,
+        "success": True,
+    }
+
+
+def _render_demo_summary_table(results: list[dict[str, Any]]) -> None:
+    """After --incident all, render a per-incident roll-up table."""
+    from rich.table import Table
+
+    table = Table(
+        title="[bold cyan]netpulse demo --incident all  ·  roll-up[/]",
+        border_style="cyan",
+        show_header=True,
+        header_style="bold",
+        expand=False,
+    )
+    table.add_column("incident id", style="bold cyan")
+    table.add_column("verdict", style="bold")
+    table.add_column("detector alerts", style="white", overflow="fold")
+    table.add_column("wall", style="white", justify="right")
+    table.add_column("latency", style="white", justify="right")
+
+    verdict_paint = {
+        "HIJACK": "[bold red]✗ HIJACK[/]",
+        "LEAK": "[bold red]✗ LEAK[/]",
+        "warnings": "[bold yellow]⚠ warn[/]",
+        "clean": "[bold green]✓ clean[/]",
+        "missing": "[dim]— missing[/]",
+    }
+    for r in results:
+        alerts = ", ".join(f"{k}={v}" for k, v in r["by_detector"].items() if v > 0) or "[dim]—[/]"
+        wall = f"{r['wall_ms']:.0f}ms" if r["wall_ms"] else "—"
+        if r.get("latency_us") is None:
+            latency = "[dim]—[/]"
+        elif r["latency_us"] <= 0:
+            latency = "[bold green]0µs[/]"
+        elif r["latency_us"] < 1_000_000:
+            latency = f"[green]{r['latency_us']}µs[/]"
+        else:
+            latency = f"{r['latency_us'] / 1_000_000:.2f}s"
+        table.add_row(
+            r["incident_id"],
+            verdict_paint.get(r["verdict"], r["verdict"]),
+            alerts,
+            wall,
+            latency,
+        )
+    console.print(table)
+
+
+@app.command("demo")
+def demo(
+    incident_id: Annotated[
+        str,
+        typer.Option(
+            "--incident",
+            help="Incident id to replay, or 'all' to play all 5 with a summary table.",
+        ),
+    ] = "youtube_pakistan_2008",
+    show_list: Annotated[
+        bool,
+        typer.Option(
+            "--list",
+            help="List the curated incidents available to --incident, then exit.",
+        ),
+    ] = False,
+    show_all: Annotated[
+        bool,
+        typer.Option(
+            "--all",
+            help=(
+                "Show every alert. Default hides MOAS warnings on "
+                "prefixes unrelated to the incident."
+            ),
+        ),
+    ] = False,
+) -> None:
+    """Replay a labeled BGP incident against a bundled or local fixture (~1s, no setup).
+
+    The default runs the canonical YouTube/Pakistan 2008 hijack against
+    a bundled real-data fixture. Use ``--incident <id>`` for any of the
+    other 4 curated corpus incidents, ``--incident all`` to play all 5
+    back-to-back with a final summary, ``--list`` to enumerate them,
+    and ``--all`` to include unrelated MOAS noise.
+    """
+    from rich.table import Table
+
+    repo_root = Path(__file__).resolve().parent.parent.parent
+
+    # ----- --list short-circuit -----
+    if show_list:
+        list_table = Table(
+            title="[bold cyan]netpulse demo --incident <id>[/]",
+            border_style="cyan",
+            show_header=True,
+            header_style="bold",
+            expand=False,
+        )
+        list_table.add_column("incident id", style="bold cyan")
+        list_table.add_column("headline", style="white")
+        list_table.add_column("when", style="dim")
+        list_table.add_column("data?", style="white")
+        for inc_id, meta in _DEMO_STORIES.items():
+            fixture_path = repo_root / meta["fixture_rel"]
+            data_status = "[green]bundled[/]" if fixture_path.exists() else "[yellow]fetch first[/]"
+            list_table.add_row(inc_id, meta["headline"], meta["when"], data_status)
+        console.print(list_table)
+        return
+
+    # ----- --incident all loop -----
+    if incident_id == "all":
+        results: list[dict[str, Any]] = []
+        ids = list(_DEMO_STORIES.keys())
+        for i, inc_id in enumerate(ids):
+            results.append(_run_one_demo(inc_id, show_all, repo_root))
+            if i < len(ids) - 1:
+                console.print()
+                console.rule(style="dim")
+                console.print()
+        console.print()
+        _render_demo_summary_table(results)
+        console.print(
+            "[dim]Each row above is one labeled incident. "
+            "Run `netpulse demo --incident <id>` to dive into a single case.[/]"
+        )
+        return
+
+    if incident_id not in _DEMO_STORIES:
+        console.print(
+            f"[red]No demo for '{incident_id}'.[/] "
+            f"Known incidents: {', '.join(sorted(_DEMO_STORIES))} (or 'all')"
+        )
+        raise typer.Exit(1)
+
+    _run_one_demo(incident_id, show_all, repo_root)
 
     if incident_id == "youtube_pakistan_2008":
         console.print(
@@ -1558,8 +1758,8 @@ def demo(
             '-d \'{"start_iso":"2008-02-24T18:45:00Z","duration_s":300}\'[/]'
         )
     console.print(
-        "[dim]More:[/] [cyan]netpulse demo --list[/]"
-        "  [dim]·[/]  [cyan]netpulse demo --incident <id>[/]"
+        "[dim]More:[/] [cyan]netpulse demo --incident all[/]"
+        "  [dim]·[/]  [cyan]netpulse demo --list[/]"
         "  [dim]·[/]  [cyan]netpulse demo --all[/]"
     )
 
