@@ -36,12 +36,16 @@ over a 51k-announce / 7.7k-prefix BGP window ≈ 39 ms.
 
 ![netpulse stream](docs/img/stream.gif)
 
-## Headline: 4 / 4 incidents detected · 0 µs streaming latency on sub-prefix hijacks
+## Headline: 5 / 5 incidents detected · 0 µs streaming latency on sub-prefix hijacks
 
 ![Per-incident detector outcomes across the labeled corpus](docs/img/corpus_matrix.svg)
 
-Four labeled BGP incidents drawn from primary sources (RIPE NCC,
-Cloudflare, ISC, BGPmon). The expected detector fires on **4 / 4**.
+Five labeled BGP incidents drawn from primary sources (RIPE NCC,
+Cloudflare, ISC, BGPmon). The expected detector fires on **5 / 5**.
+Indosat 2014 (the most recent addition) exercises BOTH branches of
+`SubPrefixHijackDetector` -- 3 exact-prefix alerts plus 16 sub-prefix
+alerts -- so the same detector logic covers MOAS-shape and
+more-specific-shape hijacks in one labeled case.
 The Google 2017 leak — previously reported as a `GAP` because the
 pair-direction valley-free check abstained on the AS15169↔AS4713 step
 — is now caught by the **customer-cone-aware** leak detector

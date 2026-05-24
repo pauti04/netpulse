@@ -9,6 +9,15 @@ deployment has soaked, an initial 1.0 will lock the schema.
 ## [unreleased]
 
 ### Added (since 0.0.1)
+- **Indosat 2014 MOAS hijack** added to the labeled-incident corpus.
+  AS4761 re-announced ~3,700 prefixes outside its 114.4.0.0/15
+  allocation around 18:25 UTC on 2014-04-02 (51,203 RRC00 records
+  fetched via `path "_4761$"`). Baseline carries five
+  AS45305/AS45454/AS45348 supernets verified against the RRC00 RIB
+  90 minutes pre-hijack. `SubPrefixHijackDetector` fires **19
+  alerts** -- 3 exact-prefix shape + 16 sub-prefix shape -- so the
+  incident exercises both detector branches. **Corpus now N=5,
+  TP=5, FN=0, GAP=0.**
 - **Streamlit alert console.** `netpulse dashboard --history alerts.duckdb`
   launches a web UI over the alert-history DuckDB: alerts-over-time
   bar chart with adjustable bucketing, by-detector and by-severity

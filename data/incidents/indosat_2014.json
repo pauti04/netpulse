@@ -1,0 +1,17 @@
+{
+  "id": "indosat_2014",
+  "name": "Indosat 2014 MOAS hijack",
+  "kind": "hijack",
+  "start_iso": "2014-04-02T18:20:00Z",
+  "end_iso": "2014-04-02T18:40:00Z",
+  "onset_iso": "2014-04-02T18:25:31Z",
+  "expected_detectors": ["subprefix_hijack"],
+  "bgp_store_path": "../indosat_2014.duckdb",
+  "baseline_path": "../baselines/indosat_2014_baseline.duckdb",
+  "source_url": "https://web.archive.org/web/20140405122340/http://www.bgpmon.net/hijack-by-as4761-indosat-a-quick-report/",
+  "prefix": null,
+  "attacker_asn": 4761,
+  "victim_asn": 45305,
+  "notes": "AS4761 (PT Indosat) briefly re-announced hundreds of thousands of prefixes globally around 18:25 UTC on 2014-04-02. The RRC00 cut fetched on 2026-05-24 with filter='path \"_4761$\"' over the 18:20-18:40 UTC window contains 51,203 records covering 3,728 distinct AS4761-origin prefixes; 3,674 of those are outside AS4761's normal 114.4.0.0/15 allocation and represent the hijack proper. The hand-curated baseline (data/baselines/indosat_2014_baseline.duckdb, seeded by scripts/seed_indosat_baseline.py) carries five AS45305/AS45454/AS45348-owned supernets verified against the RRC00 RIB at 2014-04-02T16:00:00Z. SubPrefixHijackDetector fires 19 alerts: 3 exact-prefix (the three /22s Indosat re-announced at the same length AS45305 owns -- 103.28.112.0/22, 124.40.248.0/21, 202.56.164.0/22) plus 16 sub-prefix more-specifics. Both detector shapes exercised, both correct. victim_asn=45305 picks the largest single victim; the broader set spans 45454, 45348, and others. To reproduce data/indosat_2014.duckdb: `uv run netpulse ingest bgp --start 2014-04-02T18:20:00 --duration 20m --collector rrc00 --filter 'path \"_4761$\"' --out data/indosat_2014.duckdb`. To reproduce the baseline: `uv run python scripts/seed_indosat_baseline.py data/baselines/indosat_2014_baseline.duckdb`.",
+  "verified": true
+}

@@ -102,9 +102,9 @@ Data flow: `ingest -> storage -> features -> detectors -> alerts -> (publishers 
       Google 2017 case.
 - [x] Phase 3: Replay harness + incident dataset — replay harness
       complete (`netpulse benchmark replay` + per-record
-      `stream-latency` mode); 4 labeled incidents in
+      `stream-latency` mode); 5 labeled incidents in
       `data/incidents/`; corpus runner reports TP / FN / GAP per
-      incident. **Current corpus: N=4, TP=4, FN=0, GAP=0.**
+      incident. **Current corpus: N=5, TP=5, FN=0, GAP=0.**
 - [x] Phase 4: RIPE Atlas integration — `netpulse ingest atlas`
       pulls real probe-level ping measurements via cousteau / sagan
       against a verified live response shape.
@@ -114,9 +114,12 @@ Data flow: `ingest -> storage -> features -> detectors -> alerts -> (publishers 
 - [x] Phase 6: DNS signal — `netpulse ingest dns` (active probes via
       `dnspython`) + `DNSFailureRateDetector` + DNS axis on the
       correlator.
-- [ ] Phase 7: Dashboard — Grafana 10+ dashboard JSON ships at
-      `docs/grafana/netpulse-dashboard.json`; a richer dashboard
-      surface (Streamlit or similar) is open.
+- [x] Phase 7: Dashboard — Grafana 10+ dashboard JSON ships at
+      `docs/grafana/netpulse-dashboard.json`. Richer surface lands
+      via `netpulse dashboard --history <path>`: a Streamlit
+      alert-console over the AlertHistoryStore with adjustable
+      bucketing, by-detector / by-severity breakdowns, and a raw
+      alerts table. Pure-Python data layer is unit-testable.
 - [~] Phase 8: Full benchmark — methodology, FPR survey, latency
       characterization, and per-incident matrix all complete. Open:
       more labeled incidents from primary sources; cross-collector

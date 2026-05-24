@@ -1,6 +1,6 @@
 {
-  "total": 4,
-  "tp": 4,
+  "total": 5,
+  "tp": 5,
   "fn": 0,
   "gap": 0,
   "results": [
@@ -11,6 +11,15 @@
       "outcome": "TP",
       "on_target_alerts": 123749,
       "other_alerts": 396,
+      "notes": ""
+    },
+    {
+      "incident_id": "indosat_2014",
+      "shape": "sub-prefix hijack",
+      "expected_detector": "subprefix_hijack",
+      "outcome": "TP",
+      "on_target_alerts": 19,
+      "other_alerts": 0,
       "notes": ""
     },
     {
