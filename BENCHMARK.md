@@ -10,7 +10,7 @@ roster catches **5 / 5** with **0 FN** and **0 GAP**.
 
 | Incident                          | Shape                  | Catching detector  | Detected? | Real-data evidence in the pull |
 | --------------------------------- | ---------------------- | ------------------ | :-------: | ----- |
-| 2008-02-24 YouTube / Pakistan     | sub-prefix hijack      | `subprefix_hijack` |    ✅     | first AS17557 announcement of `208.65.153.0/24` at RRC00: **2008-02-24 18:47:57Z**, matches the RIPE NCC case study |
+| 2008-02-24 YouTube /24 hijack     | sub-prefix hijack      | `subprefix_hijack` |    ✅     | first AS17557 announcement of `208.65.153.0/24` at RRC00: **2008-02-24 18:47:57Z**, matches the RIPE NCC case study |
 | 2014-04-02 Indosat / AS4761 MOAS  | sub-prefix hijack      | `subprefix_hijack` |    ✅     | RRC00 path filter `path "_4761$"` pulls 51,203 records over the 18:20-18:40 UTC window covering 3,728 distinct AS4761-origin prefixes; 3,674 are outside Indosat's 114.4.0.0/15 allocation. **19 alerts** fire — 3 exact-prefix (Case 1) + 16 sub-prefix (Case 2) — so the same detector exercises both branches in a single labeled case. |
 | 2018-04-24 MyEtherWallet          | sub-prefix hijack      | `subprefix_hijack` |    ✅     | first AS10297 announcement of `205.251.192.0/24` at RRC00: **2018-04-24 11:05:50Z**; all 5 hijacked /24s detected as more-specifics of Amazon AS16509's /23 supernets, 0 FPs |
 | 2018-11-12 MainOne → Google leak  | RFC 7908 Type-1 leak   | `route_leak`       |    ✅     | first AS37282 transit observation at RRC00: **2018-11-12 21:12:16Z**, matches BGPmon's reported onset to the second; 203 distinct Google prefixes seen leaked; **1,985 MainOne-shape leak alerts** with the time-aligned CAIDA serial-2 (20181101) snapshot |
@@ -36,7 +36,7 @@ in fact a *sub-prefix* hijack, which is why a supernet-aware detector is
 required. See [`docs/why-subprefix.md`](docs/why-subprefix.md) for the
 walkthrough.
 
-![YouTube/Pakistan hijack onset at RRC00](docs/img/youtube_2008_onset.svg)
+![2008 YouTube /24 hijack onset at RRC00](docs/img/youtube_2008_onset.svg)
 
 ## Per-hour table
 
@@ -62,9 +62,9 @@ origin(s) [17557]
 
 ## What "the hijack" actually was
 
-On 2008-02-24, AS17557 (Pakistan Telecom) announced `208.65.153.0/24`, a
+On 2008-02-24, AS17557 announced `208.65.153.0/24`, a
 more-specific of YouTube's `208.65.152.0/22` (AS36561), propagating
-globally via PCCW (AS3491). Source:
+globally via its upstream AS3491 (PCCW). Source:
 <https://www.ripe.net/publications/news/youtube-hijacking-a-ripe-ncc-ris-case-study/>.
 
 In the data:
@@ -162,7 +162,7 @@ For completeness, `--chunk` sensitivity in the chunk-bounded mode:
 ## What this benchmark is not
 
 - **One labeled incident.** The fixture set in `data/incidents/` has
-  `youtube_pakistan_2008.json` only. Schema and primary-source citation
+  `youtube_2008.json` only. Schema and primary-source citation
   rules: `data/incidents/_README.md`. Adding more is research, not code.
 - **Bounded baseline scope.** `data/baselines/yt_rib_filtered.duckdb` is
   the **real RIB at 2008-02-24T16:00:00Z**, but only for prefixes inside

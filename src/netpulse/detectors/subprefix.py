@@ -54,7 +54,7 @@ class SubPrefixHijackDetector(DetectorBase[BGPWindowFeatures]):
                 continue
 
             # Case 2: prefix not in baseline; look for a covering supernet.
-            # Sub-prefix hijacks (YouTube/Pakistan, MyEtherWallet) land here.
+            # Sub-prefix hijacks (2008 YouTube /24, MyEtherWallet) land here.
             cover = self.baseline.most_specific_supernet(prefix)
             if cover is None:
                 continue

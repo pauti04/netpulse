@@ -102,7 +102,7 @@ data is ever committed. Each fixture cites its source URL.
 
 | Incident                          | Date          | Shape                  | Source                            |
 | --------------------------------- | ------------- | ---------------------- | --------------------------------- |
-| YouTube / Pakistan                | 2008-02-24    | sub-prefix hijack      | RIPE NCC RIS case study           |
+| YouTube /24 sub-prefix hijack     | 2008-02-24    | sub-prefix hijack      | RIPE NCC RIS case study           |
 | MyEtherWallet                     | 2018-04-24    | sub-prefix hijack      | Cloudflare BGP-leaks blog         |
 | MainOne → Google                  | 2018-11-12    | route leak (RFC 7908)  | BGPmon / ThousandEyes writeups    |
 | Google → Verizon → NTT            | 2017-08-25    | route leak (RFC 7908)  | NTT / ISC operator reports        |
@@ -198,7 +198,7 @@ chunk in which the detector fires (parameterized by `--chunk`).
 
 | Incident                  | Chunk-bounded (`--chunk 1m`) | Streaming-mode (per-record) |
 | ------------------------- | ---------------------------: | --------------------------: |
-| YouTube / Pakistan 2008   |                         3.0s |                  **0.000s** |
+| YouTube /24 2008 hijack   |                         3.0s |                  **0.000s** |
 | MyEtherWallet 2018        |                         3.0s |                  **0.000s** |
 
 The streaming row is 0 µs because, in the public RIS archive, the

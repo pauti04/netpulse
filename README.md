@@ -8,7 +8,7 @@ Open-source detector for Internet outages and BGP anomalies, evaluated
 against real RIPE RIS archive data with a public reproducible benchmark.
 
 **Live demo:** [`netpulse-pauti.fly.dev`](https://netpulse-pauti.fly.dev/health) —
-hits a deployed FastAPI bound to the YouTube/Pakistan 2008 fixture +
+hits a deployed FastAPI bound to the 2008 YouTube /24 hijack fixture +
 RIB baseline. `POST /detect/bgp` returns alerts as JSON; `GET /alerts`
 queries persisted history.
 
@@ -87,7 +87,7 @@ temporal-drift detail that matters: the route-leak detector requires the
 *time-aligned* CAIDA snapshot; with the current 2026-05 dataset the same
 query produces 0 alerts on this 2018 incident.
 
-![YouTube/Pakistan hijack onset at RRC00](docs/img/youtube_2008_onset.svg)
+![2008 YouTube /24 hijack onset at RRC00](docs/img/youtube_2008_onset.svg)
 
 ## What it does
 
@@ -112,7 +112,7 @@ uv run netpulse demo --incident all      # play all 5 + roll-up table
 
 Each demo prints a story panel describing the incident, pulls the
 actual hijacker AS path from the archive (with friendly AS names —
-`AS17557 (Pakistan Telecom) ←ORIGIN`), runs the matching detectors
+`AS17557 ←ORIGIN`), runs the matching detectors
 (hijack vs leak via auto-dispatch), lands a color-coded verdict
 panel — **HIJACK DETECTED**, **LEAK DETECTED**, or **Clean window** —
 and prints the stream-latency from documented onset
@@ -121,7 +121,7 @@ Noise-filtered by default; add `--all` to see every alert.
 
 | Incident                       | Detectors fired                          | Verdict          | Stream latency |
 |--------------------------------|------------------------------------------|------------------|----------------|
-| `youtube_pakistan_2008`        | moas=2, subprefix_hijack=1               | HIJACK DETECTED  | **0 µs**       |
+| `youtube_2008`                 | moas=2, subprefix_hijack=1               | HIJACK DETECTED  | **0 µs**       |
 | `indosat_2014`                 | subprefix_hijack=19 (both branches)      | HIJACK DETECTED  | 99 s¹          |
 | `myetherwallet_2018`           | subprefix_hijack=5                       | HIJACK DETECTED  | **0 µs**       |
 | `google_ntt_leak_2017`         | customer_cone_leak=124,145               | LEAK DETECTED    | n/a²           |
@@ -192,7 +192,7 @@ RIPE RIS archive data:
 
 | Incident                          | Shape                  | Outcome | Catching detector  |
 | --------------------------------- | ---------------------- | :-----: | ------------------ |
-| 2008-02-24 YouTube / Pakistan     | sub-prefix hijack      |   TP    | `subprefix_hijack` |
+| 2008-02-24 YouTube /24 hijack     | sub-prefix hijack      |   TP    | `subprefix_hijack` |
 | 2014-04-02 Indosat / AS4761 MOAS  | sub-prefix hijack      |   TP    | `subprefix_hijack` |
 | 2018-04-24 MyEtherWallet          | sub-prefix hijack      |   TP    | `subprefix_hijack` |
 | 2018-11-12 MainOne → Google leak  | RFC 7908 Type-1 leak   |   TP    | `route_leak`       |

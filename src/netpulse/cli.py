@@ -1000,7 +1000,6 @@ def stream(
 # AS-path callout to make the chain readable at a glance.
 _AS_NAMES: dict[int, str] = {
     # Hijack-case actors
-    17557: "Pakistan Telecom",
     36561: "YouTube",
     3491: "PCCW",
     3333: "RIPE NCC",
@@ -1051,15 +1050,16 @@ def _as_with_name(asn: int) -> str:
 # that triggered detection -- not just the alert text. Fixture paths
 # are relative to the repo root.
 _DEMO_STORIES: dict[str, dict[str, Any]] = {
-    "youtube_pakistan_2008": {
+    "youtube_2008": {
         "incident_type": "hijack",
-        "headline": "YouTube / Pakistan Telecom hijack",
+        "headline": "YouTube /24 sub-prefix hijack",
         "when": "2008-02-24 · 18:47:57 UTC onset",
         "story": (
-            "Pakistan Telecom (AS17557) tried to block YouTube domestically by "
-            "null-routing 208.65.153.0/24 inside their network. Their upstream "
-            "PCCW (AS3491) re-announced the route globally. For ~two hours, "
-            "YouTube was unreachable across the internet."
+            "AS17557 announced 208.65.153.0/24 — a more-specific cut out of "
+            "YouTube's 208.65.152.0/22 supernet. The announcement was intended "
+            "as an internal null-route but leaked to upstream AS3491 (PCCW), "
+            "which propagated it globally. For ~two hours, YouTube was "
+            "unreachable across the internet."
         ),
         "fixture_rel": "data/fixtures/youtube_2008_demo.duckdb",
         "baseline_rel": None,  # baked into the demo (hand-curated)
@@ -1068,12 +1068,12 @@ _DEMO_STORIES: dict[str, dict[str, Any]] = {
         "window_end_us": 1_203_879_000_000_000,
         "onset_us": 1_203_878_877_000_000,
         "victim": "208.65.152.0/22 → AS36561 (YouTube)",
-        "attacker": "AS17557 (Pakistan Telecom)",
+        "attacker": "AS17557",
         "attacker_asn": 17557,
         "hijack_prefix": "208.65.153.0/24",
         "path_note": (
-            "The /24 should be reachable only inside Pakistan. "
-            "PCCW (AS3491) propagated it globally."
+            "The /24 was intended to stay inside AS17557 as a local null-route. "
+            "AS3491 (PCCW) re-announced it globally."
         ),
     },
     "indosat_2014": {
@@ -1393,7 +1393,7 @@ def _run_one_demo(incident_id: str, show_all: bool, repo_root: Path) -> dict[str
 
     if not fixture.exists():
         console.print(f"[red]Fixture missing at {fixture}.[/]")
-        if incident_id != "youtube_pakistan_2008":
+        if incident_id != "youtube_2008":
             console.print(
                 "[dim]Fetch the incident's BGP data via the recipe in "
                 f"data/incidents/{incident_id}.json → notes, then re-run.[/]"
@@ -1422,7 +1422,7 @@ def _run_one_demo(incident_id: str, show_all: bool, repo_root: Path) -> dict[str
         # Baseline: hand-curated for YouTube; loaded from baseline_rel
         # for the others.
         baseline_rel = meta.get("baseline_rel")
-        if incident_id == "youtube_pakistan_2008":
+        if incident_id == "youtube_2008":
             baseline = BGPBaseline.build({"208.65.152.0/22": {36561}})
         elif baseline_rel is not None:
             baseline_p = repo_root / baseline_rel
@@ -1837,7 +1837,7 @@ def demo(
             "--incident",
             help="Incident id to replay, or 'all' to play all 5 with a summary table.",
         ),
-    ] = "youtube_pakistan_2008",
+    ] = "youtube_2008",
     show_list: Annotated[
         bool,
         typer.Option(
@@ -1869,7 +1869,7 @@ def demo(
 ) -> None:
     """Replay a labeled BGP incident against a bundled or local fixture (~1s, no setup).
 
-    The default runs the canonical YouTube/Pakistan 2008 hijack against
+    The default runs the canonical 2008 YouTube /24 sub-prefix hijack against
     a bundled real-data fixture. Use ``--incident <id>`` for any of the
     other 4 curated corpus incidents, ``--incident all`` to play all 5
     back-to-back with a final summary, ``--list`` to enumerate them,
@@ -1932,7 +1932,7 @@ def demo(
 
     _run_one_demo(incident_id, show_all, repo_root)
 
-    if incident_id == "youtube_pakistan_2008":
+    if incident_id == "youtube_2008":
         console.print(
             "[dim]Reproduce live: "
             "[/][cyan]curl -X POST https://netpulse-pauti.fly.dev/detect/bgp "

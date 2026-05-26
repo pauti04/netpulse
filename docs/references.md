@@ -36,10 +36,10 @@ ground truth for protocol behavior.
 
 ## Incident primary sources
 
-- **YouTube / Pakistan 2008 hijack** — RIPE NCC case study,
+- **2008 YouTube /24 sub-prefix hijack** — RIPE NCC case study,
   *YouTube Hijacking: A RIPE NCC RIS Case Study*.
   <https://www.ripe.net/publications/news/youtube-hijacking-a-ripe-ncc-ris-case-study/>.
-  Used as the source for `data/incidents/youtube_pakistan_2008.json`.
+  Used as the source for `data/incidents/youtube_2008.json`.
 - **Amazon Route 53 / MyEtherWallet 2018 hijack** — Cloudflare blog,
   *BGP Leaks and Cryptocurrencies* (Tom Strickx, 2018).
   <https://blog.cloudflare.com/bgp-leaks-and-crypto-currencies/>.

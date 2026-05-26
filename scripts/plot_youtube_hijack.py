@@ -91,7 +91,7 @@ def main() -> None:
     )
 
     ax.set_title(
-        "YouTube / Pakistan 2008 hijack at RRC00 — announces per second",
+        "2008 YouTube /24 sub-prefix hijack at RRC00 — announces per second",
         fontsize=11,
     )
     ax.set_ylabel("announces / sec")

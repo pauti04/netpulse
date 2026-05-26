@@ -86,31 +86,31 @@ From the NetPulse repo root:
 ```sh
 # 1. Export an ARTEMIS config from the NetPulse incident.
 uv run python scripts/artemis_export_config.py \
-    data/incidents/youtube_pakistan_2008.json \
-    docs/artemis/configs/youtube_pakistan_2008.yaml
+    data/incidents/youtube_2008.json \
+    docs/artemis/configs/youtube_2008.yaml
 
 # 2. Re-export the MRT for ARTEMIS' bgpstreamhist replay.
 #    (NetPulse stores BGP records in DuckDB; ARTEMIS
 #    expects the underlying MRT bz2 dumps in a directory.)
 uv run python scripts/artemis_export_mrt.py \
-    data/incidents/youtube_pakistan_2008.json \
+    data/incidents/youtube_2008.json \
     ../artemis/local_configs/bgpstreamhist/
 
 # 3. Reload ARTEMIS' config (via web UI or REST API).
 # 4. Trigger replay (web UI -> "Restart processes").
 # 5. Once detection finishes, pull alerts:
 uv run python scripts/artemis_compare.py \
-    --incident data/incidents/youtube_pakistan_2008.json \
+    --incident data/incidents/youtube_2008.json \
     --artemis-url https://localhost:8443 \
     --artemis-token "$(cat ../artemis/.env | grep API_TOKEN | cut -d= -f2)" \
-    --out docs/artemis/results/youtube_pakistan_2008.json
+    --out docs/artemis/results/youtube_2008.json
 ```
 
 The comparison report writes a JSON shaped like:
 
 ```json
 {
-  "incident_id": "youtube_pakistan_2008",
+  "incident_id": "youtube_2008",
   "netpulse": {
     "fired": true,
     "first_alert_us": 1203882477000000,
@@ -132,7 +132,7 @@ single `docs/artemis-comparison.md` table:
 
 | Incident                | NetPulse | ARTEMIS | NetPulse latency | ARTEMIS latency |
 |-------------------------|----------|---------|------------------|-----------------|
-| youtube_pakistan_2008   | TP       | TP      | 0 µs             | 0 µs            |
+| youtube_2008   | TP       | TP      | 0 µs             | 0 µs            |
 | indosat_2014            | TP       | TP      | ...              | ...             |
 | google_ntt_leak_2017    | TP       | ?       | ...              | ...             |
 | mainone_google_leak_2018| TP       | ?       | ...              | ...             |

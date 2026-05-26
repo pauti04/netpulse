@@ -86,8 +86,8 @@ def test_load_incidents_empty_directory(tmp_path: Path) -> None:
 
 def test_youtube_fixture_loads() -> None:
     repo_root = Path(__file__).resolve().parent.parent
-    inc = load_incident(repo_root / "data" / "incidents" / "youtube_pakistan_2008.json")
-    assert inc.id == "youtube_pakistan_2008"
+    inc = load_incident(repo_root / "data" / "incidents" / "youtube_2008.json")
+    assert inc.id == "youtube_2008"
     assert inc.kind == "hijack"
     assert inc.prefix == "208.65.153.0/24"
     assert inc.attacker_asn == 17557

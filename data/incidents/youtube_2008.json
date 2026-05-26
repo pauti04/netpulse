@@ -1,6 +1,6 @@
 {
-  "id": "youtube_pakistan_2008",
-  "name": "YouTube / Pakistan Telecom hijack",
+  "id": "youtube_2008",
+  "name": "YouTube /24 sub-prefix hijack",
   "kind": "hijack",
   "start_iso": "2008-02-24T00:00:00Z",
   "end_iso": "2008-02-25T00:00:00Z",
@@ -12,6 +12,6 @@
   "prefix": "208.65.153.0/24",
   "attacker_asn": 17557,
   "victim_asn": 36561,
-  "notes": "AS17557 (Pakistan Telecom) announced 208.65.153.0/24, a more-specific of YouTube's 208.65.152.0/22, propagating beyond Pakistan via PCCW (AS3491). onset_iso is the first AS17557 announcement of the /24 observed at RRC00 in the data fetched on 2026-05-09 (peer_as=3333 at 18:47:57Z) — see scripts/seed_youtube_baseline.py for the legitimate /22 origin used in the baseline.",
+  "notes": "AS17557 announced 208.65.153.0/24, a more-specific of YouTube's 208.65.152.0/22, propagating globally via its upstream AS3491 (PCCW). onset_iso is the first AS17557 announcement of the /24 observed at RRC00 in the data fetched on 2026-05-09 (peer_as=3333 at 18:47:57Z) — see scripts/seed_youtube_baseline.py for the legitimate /22 origin used in the baseline.",
   "verified": true
 }

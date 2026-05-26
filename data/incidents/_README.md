@@ -11,8 +11,9 @@ Do not invent timestamps, AS numbers, prefixes, or incident details. When a
 detail cannot be verified, leave the field absent and set `"verified":
 false` with a note describing what still needs confirmation.
 
-The repository ships exactly one populated example (`youtube_pakistan_2008.json`)
-because that's the most extensively documented public BGP hijack. Adding a
+The repository ships five populated examples (the canonical
+`youtube_2008.json` plus four others added since) because they are the
+most extensively documented public BGP incidents. Adding a
 new incident is a deliberate research task — read the primary sources and
 fill in the schema yourself. Generated lists of "famous BGP incidents" are
 explicitly disallowed.

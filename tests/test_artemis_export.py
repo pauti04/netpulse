@@ -29,7 +29,7 @@ import artemis_export_config  # noqa: E402
 
 @pytest.fixture
 def youtube_incident_path() -> Path:
-    p = REPO_ROOT / "data" / "incidents" / "youtube_pakistan_2008.json"
+    p = REPO_ROOT / "data" / "incidents" / "youtube_2008.json"
     if not p.exists():
         pytest.skip("youtube incident not present in this checkout")
     return p
@@ -104,7 +104,7 @@ def test_compare_handles_netpulse_only(tmp_path: Path) -> None:
             {
                 "results": [
                     {
-                        "incident_id": "youtube_pakistan_2008",
+                        "incident_id": "youtube_2008",
                         "outcome": "TP",
                         "on_target_alerts": 1,
                         "other_alerts": 0,
@@ -116,7 +116,7 @@ def test_compare_handles_netpulse_only(tmp_path: Path) -> None:
     rows = artemis_compare.compare(netpulse_path, [])
     assert len(rows) == 1
     r = rows[0]
-    assert r.incident_id == "youtube_pakistan_2008"
+    assert r.incident_id == "youtube_2008"
     assert r.netpulse_outcome == "TP"
     assert r.artemis_fired is False
     assert r.artemis_alerts == 0

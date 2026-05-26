@@ -52,7 +52,7 @@ def _load_artemis_rows(paths: list[Path]) -> dict[str, list[dict]]:
     """ARTEMIS hijacks are grouped per file (one file per incident replay).
 
     The filename's stem must match the incident id (e.g.
-    ``youtube_pakistan_2008.json`` -> ``youtube_pakistan_2008``).
+    ``youtube_2008.json`` -> ``youtube_2008``).
     Each file is the JSON list returned by GET /api/hijacks for the
     relevant time window.
     """

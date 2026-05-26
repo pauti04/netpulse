@@ -1,4 +1,4 @@
-"""Seed a focused BGP baseline for the YouTube/Pakistan 2008 hijack benchmark.
+"""Seed a focused BGP baseline for the 2008 YouTube /24 sub-prefix hijack benchmark.
 
 Pulling the full RRC00 RIB at 2008-02-24T16:00:00Z works but takes ~15-20
 minutes of pure-Python iteration through pybgpstream — too slow to bake into

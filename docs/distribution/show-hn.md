@@ -16,7 +16,7 @@ I built NetPulse because the open BGP-anomaly-detector world has a
 real gap: the published systems are great (PHAS, Pretty Good BGP,
 ARTEMIS), but very few publish a public, re-runnable benchmark on real
 RIS archive data. So you can read the algorithm but you can't sit down
-and run it on the YouTube/Pakistan 2008 hijack in five minutes.
+and run it on the 2008 YouTube /24 hijack in five minutes.
 
 NetPulse is opinionated about that part:
 

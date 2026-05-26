@@ -13,8 +13,8 @@ one every "BGP hijack detection 101" piece walks you through: **MOAS**
 distinct origin ASes; more than one means something's off.
 
 I tested it. Worked great on synthetic data. Then I ran it against the
-canonical example — the 2008 YouTube/Pakistan hijack, the textbook of
-all BGP hijacks — using actual RIPE RIS archive data.
+canonical example — the 2008 YouTube /24 sub-prefix hijack, the
+textbook of all BGP hijacks — using actual RIPE RIS archive data.
 
 It didn't fire.
 
@@ -24,17 +24,17 @@ falls out of the data is a clean story.
 
 ## What we're trying to detect
 
-On 2008-02-24 at 18:47 UTC, AS17557 (Pakistan Telecom) announced
-`208.65.153.0/24` to its upstream PCCW (AS3491), which propagated it
-globally. YouTube's actual prefix at the time was `208.65.152.0/22`
-from AS36561. For the next 80 minutes the more-specific `/24` won the
-routing decision in any network that received both, and YouTube went dark
-for chunks of the Internet.
+On 2008-02-24 at 18:47 UTC, AS17557 announced `208.65.153.0/24` to its
+upstream AS3491 (PCCW), which propagated it globally. YouTube's actual
+prefix at the time was `208.65.152.0/22` from AS36561. For the next
+80 minutes the more-specific `/24` won the routing decision in any
+network that received both, and YouTube went dark for chunks of the
+Internet.
 
 The classical description of this incident — the one in the [RIPE NCC
-case study][ripe-yt] that more than a few security textbooks quote — is:
-"Pakistan Telecom announced a YouTube prefix." That phrasing is what set
-me up to expect MOAS would catch it.
+case study][ripe-yt] that more than a few security textbooks quote — is
+phrased as "AS17557 announced a YouTube prefix." That phrasing is what
+set me up to expect MOAS would catch it.
 
 ## What MOAS actually checks
 
@@ -128,7 +128,7 @@ chunk size you ran with*, because each chunk's expanding window is
 evaluated as a unit. Smaller chunks, smaller reported latency. With
 streaming detection — running the same logic on the live RIS Live
 WebSocket — the alert fires when the first qualifying update arrives,
-which on the Pakistan case is the AS17557 announcement at 18:47:57 UTC
+which on this case is the AS17557 announcement at 18:47:57 UTC
 itself.
 
 The number that matters isn't latency; it's the confusion matrix. Here
@@ -138,8 +138,8 @@ but both are observable on real data, with reproducible commands.
 
 ## Lessons that fall out
 
-1. **The textbook framing is sometimes a category error.** "Pakistan
-   Telecom announced a YouTube prefix" sounds like one event. From
+1. **The textbook framing is sometimes a category error.** "AS17557
+   announced a YouTube prefix" sounds like one event. From
    BGP's view it was a *new* prefix, not a duplicate of YouTube's, and
    that distinction is what makes detection non-trivial.
 

@@ -41,7 +41,7 @@
       "notes": ""
     },
     {
-      "incident_id": "youtube_pakistan_2008",
+      "incident_id": "youtube_2008",
       "shape": "sub-prefix hijack",
       "expected_detector": "subprefix_hijack",
       "outcome": "TP",

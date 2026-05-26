@@ -35,7 +35,7 @@ breaking changes will bump 0.2 / 1.0 as the corpus grows toward N=10.
     table summarizing verdict, alerts fired per detector, wall time,
     and stream-latency per incident.
   - **Friendly AS names** in the hijacker path panel: the attacker
-    AS now reads as `AS17557 (Pakistan Telecom)` etc. — 30+ ASes
+    AS now reads as `AS4761 (PT Indosat)` etc. — ~30 ASes
     curated in `_AS_NAMES`. Other hops stay numeric to keep the
     line scannable.
   - **Stream-latency from documented onset** added to the verdict
@@ -215,7 +215,7 @@ working end-to-end.
   `GET /alerts`.
 
 ### Labeled incidents (N=3)
-- 2008-02-24 YouTube / Pakistan (sub-prefix hijack)
+- 2008-02-24 YouTube /24 (sub-prefix hijack)
 - 2018-04-24 MyEtherWallet / Amazon Route 53 (sub-prefix hijack)
 - 2018-11-12 MainOne → Google (RFC 7908 Type-1 leak)
 

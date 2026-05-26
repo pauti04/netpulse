@@ -101,7 +101,7 @@ different `expected_detectors`:
 | Shape                     | Detector                | Notable case          |
 |---------------------------|-------------------------|-----------------------|
 | Same-prefix re-announce   | `subprefix_hijack` Case 1 | Indosat 2014          |
-| More-specific hijack      | `subprefix_hijack` Case 2 | YouTube/Pakistan 2008 |
+| More-specific hijack      | `subprefix_hijack` Case 2 | YouTube /24 2008      |
 | Type-1 path leak          | `route_leak`            | MainOne 2018          |
 | Cone-violation leak       | `customer_cone_leak`    | Google/NTT 2017       |
 | Origin de-aggregation     | (no detector ships yet) | Telekom Malaysia 2015 |

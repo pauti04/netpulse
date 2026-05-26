@@ -10,8 +10,8 @@ carry that field.
 
 Usage:
     uv run python scripts/artemis_export_config.py \\
-        data/incidents/youtube_pakistan_2008.json \\
-        docs/artemis/configs/youtube_pakistan_2008.yaml
+        data/incidents/youtube_2008.json \\
+        docs/artemis/configs/youtube_2008.yaml
 """
 
 from __future__ import annotations

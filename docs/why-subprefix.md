@@ -2,7 +2,7 @@
 
 A short note on a subtle thing that surprised me building the BGP detector
 for NetPulse: **a same-prefix multi-origin (MOAS) check cannot detect the
-canonical 2008 YouTube/Pakistan hijack**, even though "multiple ASes
+canonical 2008 YouTube /24 sub-prefix hijack**, even though "multiple ASes
 announcing the same prefix" is the textbook description of a hijack.
 
 ## What MOAS is, and what it isn't
@@ -20,9 +20,9 @@ contained inside the other.
 
 ## What the YouTube hijack actually looked like
 
-On 2008-02-24, AS17557 (Pakistan Telecom) announced `208.65.153.0/24`. The
+On 2008-02-24, AS17557 announced `208.65.153.0/24`. The
 legitimate YouTube announcement at the time was `208.65.152.0/22` from
-AS36561 — a less-specific prefix. Pakistan Telecom didn't claim YouTube's
+AS36561 — a less-specific prefix. AS17557 didn't claim YouTube's
 prefix; it announced a more-specific subset of it.
 
 Routers prefer more-specifics, so AS17557's `/24` won the routing decision
