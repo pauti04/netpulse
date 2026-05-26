@@ -6,6 +6,21 @@ The project follows pre-1.0 versioning: breaking changes are allowed in
 0.x releases. Once the labeled-incident corpus is at N≥10 and the live
 deployment has soaked, an initial 1.0 will lock the schema.
 
+## [unreleased]
+
+### Added
+- **`OriginDeaggregationDetector`** — new detector that fires when a
+  single origin AS emits a burst of more-specific (/23+) prefixes
+  in the observation window. Catches the Telekom-Malaysia-2015 shape
+  (massive self-deaggregation through an upstream) that neither
+  `MOASDetector` nor `SubPrefixHijackDetector` reports because every
+  announce has a legitimate origin. Shape-only — no baseline needed.
+  Default thresholds: ≥200 distinct prefixes from one origin, with
+  ≥70% at /23-or-longer. Wired into `netpulse demo` for hijack
+  incidents (3 detectors run instead of 2); fires on `indosat_2014`
+  in addition to subprefix_hijack. 6 unit tests cover the threshold
+  matrix.
+
 ## [0.2.0] -- 2026-05-26
 
 ### Added

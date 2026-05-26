@@ -1513,8 +1513,16 @@ def _run_one_demo(incident_id: str, show_all: bool, repo_root: Path) -> dict[str
             f"  [green]+[/] built baseline        [bold]{len(baseline.origins)}[/] supernet(s)"
         )
 
+        from netpulse.detectors.origin_deaggregation import OriginDeaggregationDetector
+
         t1 = _time.perf_counter()
-        hijack_detectors = [MOASDetector(), SubPrefixHijackDetector(baseline)]
+        # Heterogeneous detector list; each conforms to the (name, score)
+        # informal protocol but isn't typed as such, so go through Any.
+        hijack_detectors: list[Any] = [
+            MOASDetector(),
+            SubPrefixHijackDetector(baseline),
+            OriginDeaggregationDetector(),
+        ]
         for det in hijack_detectors:
             alerts = det.score(feats)
             by_detector[det.name] = len(alerts)
