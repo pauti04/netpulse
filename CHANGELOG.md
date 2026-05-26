@@ -6,9 +6,23 @@ The project follows pre-1.0 versioning: breaking changes are allowed in
 0.x releases. Once the labeled-incident corpus is at N≥10 and the live
 deployment has soaked, an initial 1.0 will lock the schema.
 
-## [unreleased]
+## [0.2.0] -- 2026-05-26
 
 ### Added
+- **Corpus N=4 → N=7.** Three new labeled incidents land in this
+  release. `data/incidents/`:
+  - `indosat_2014.json` — AS4761 MOAS hijack; 19 subprefix_hijack
+    alerts across both detector branches.
+  - `vodafone_idea_2024.json` — AS55410 tier-1-to-tier-1 leak
+    (Bharti Airtel ↔ Tata Communications); 1,015 customer_cone_leak
+    alerts entirely through AS55410.
+  - `rostelecom_2017.json` — AS12389 briefly re-announced ~36
+    prefixes belonging to Mastercard, Visa, USPS, and other US
+    financial networks; 4 subprefix_hijack alerts against a
+    hand-curated RIB-verified baseline.
+- Corpus benchmark: **7/7 TP / 0 FN / 0 GAP**, 100% detector coverage.
+
+### (carried from 0.2.0 development)
 - **Corpus N=5 → N=6.** Vodafone Idea (AS55410) tier-1-to-tier-1 leak
   of 2024-09-30 added to `data/incidents/vodafone_idea_2024.json`.
   Real RIS data: 9,394 paths from rrc00 over a 30-minute window with

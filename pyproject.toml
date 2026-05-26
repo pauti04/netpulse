@@ -1,6 +1,6 @@
 [project]
 name = "netpulse"
-version = "0.1.0"
+version = "0.2.0"
 description = "Multi-signal Internet outage and BGP anomaly detector with a public, reproducible benchmark."
 readme = "README.md"
 requires-python = ">=3.11"

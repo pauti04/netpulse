@@ -36,7 +36,7 @@ over a 51k-announce / 7.7k-prefix BGP window ≈ 39 ms.
 
 ![netpulse stream](docs/img/stream.gif)
 
-## Headline: 6 / 6 incidents detected · 0 µs streaming latency on sub-prefix hijacks
+## Headline: 7 / 7 incidents detected · 0 µs streaming latency on sub-prefix hijacks
 
 ![Per-incident detector outcomes across the labeled corpus](docs/img/corpus_matrix.svg)
 
@@ -127,6 +127,7 @@ Noise-filtered by default; add `--all` to see every alert.
 | `google_ntt_leak_2017`         | customer_cone_leak=124,145               | LEAK DETECTED    | n/a²           |
 | `mainone_google_leak_2018`     | route_leak=1,985, customer_cone_leak=4,100 | LEAK DETECTED  | n/a²           |
 | `vodafone_idea_2024`           | route_leak=43, customer_cone_leak=1,015    | LEAK DETECTED  | n/a²           |
+| `rostelecom_2017`              | subprefix_hijack=4 (financial network)     | HIJACK DETECTED| 1 s            |
 
 ¹ Indosat's first AS4761 announcement is on a Bangladesh prefix not in
 the small hand-curated baseline; the detector fires on the first
@@ -188,13 +189,14 @@ which is what makes the historical benchmark reproducible.
 
 ## Headline numbers
 
-Six labeled historical incidents of distinct shape, scored on real
+Seven labeled historical incidents of distinct shape, scored on real
 RIPE RIS archive data:
 
 | Incident                          | Shape                  | Outcome | Catching detector  |
 | --------------------------------- | ---------------------- | :-----: | ------------------ |
 | 2008-02-24 YouTube /24 hijack     | sub-prefix hijack      |   TP    | `subprefix_hijack` |
 | 2014-04-02 Indosat / AS4761 MOAS  | sub-prefix hijack      |   TP    | `subprefix_hijack` |
+| 2017-04-26 Rostelecom financials  | sub-prefix hijack      |   TP    | `subprefix_hijack` |
 | 2018-04-24 MyEtherWallet          | sub-prefix hijack      |   TP    | `subprefix_hijack` |
 | 2018-11-12 MainOne → Google leak  | RFC 7908 Type-1 leak   |   TP    | `route_leak`       |
 | 2017-08-25 Google → Verizon → NTT | RFC 7908 Type-1 leak   |   TP    | `customer_cone_leak` |

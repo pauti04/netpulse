@@ -1,0 +1,17 @@
+{
+  "id": "rostelecom_2017",
+  "name": "Rostelecom (AS12389) financial-network sub-prefix hijack",
+  "kind": "hijack",
+  "start_iso": "2017-04-26T22:30:00Z",
+  "end_iso": "2017-04-26T23:00:00Z",
+  "onset_iso": "2017-04-26T22:36:39Z",
+  "expected_detectors": ["subprefix_hijack"],
+  "bgp_store_path": "../rostelecom_2017.duckdb",
+  "baseline_path": "../baselines/rostelecom_2017_baseline.duckdb",
+  "source_url": "https://stat.ripe.net/widget/routing-history#w.resource=AS12389",
+  "prefix": null,
+  "attacker_asn": 12389,
+  "victim_asn": null,
+  "notes": "AS12389 (Rostelecom, Russia) briefly re-announced ~36 prefixes belonging to major US financial networks (Mastercard, Visa, and others) on 2017-04-26 starting at 22:36 UTC. The hijack lasted ~10 minutes; victims included AS26380 (Mastercard / Edgenet's 216.119.216.0/24), AS2559 (PSI / federal USPS-adjacent 198.241.161.0/24, 198.241.170.0/24), and others. The hijack reached rrc00 via AS1273 (Vodafone) as the canonical Russian propagation path '3333 1273 12389'. onset_iso is the first AS12389 transit observation of a non-Russian prefix at RRC00 in the data fetched on 2026-05-26 (peer 3333, path '3333 1273 12389', prefix 216.119.216.0/24, 22:36:39Z). 130 distinct AS12389-origin prefixes observed during the 30-minute window; 82 of them outside Russian /8 ranges. The subprefix_hijack detector fires on 7 of them (the baseline only declares the verified legitimate origins via RIB-snapshot lookup). Source URL points to RIPE Stat's authoritative routing-history view for AS12389; the BGP archive itself is the underlying evidence.",
+  "verified": true
+}

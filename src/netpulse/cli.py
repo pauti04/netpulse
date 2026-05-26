@@ -1040,6 +1040,11 @@ _AS_NAMES: dict[int, str] = {
     9498: "Bharti Airtel",
     45528: "Tata Communications",
     4637: "Telstra Global",
+    # Rostelecom 2017
+    12389: "Rostelecom",
+    1273: "Vodafone",
+    26380: "Edgenet (Mastercard)",
+    2559: "PSI / USPS",
 }
 
 
@@ -1173,6 +1178,32 @@ _DEMO_STORIES: dict[str, dict[str, Any]] = {
             "Canonical leak path: AS15562 → AS2914 → AS20485 → AS4809 → AS37282 → AS15169. "
             "203 distinct Google prefixes observed leaking through MainOne in the 90-minute "
             "window. Detected via valley-free + customer-cone path inference."
+        ),
+    },
+    "rostelecom_2017": {
+        "incident_type": "hijack",
+        "headline": "Rostelecom (AS12389) financial-network hijack",
+        "when": "2017-04-26 · 22:36:39 UTC onset",
+        "story": (
+            "AS12389 briefly re-announced ~36 prefixes belonging to major US "
+            "financial networks — including Mastercard, Visa, and several "
+            "federal allocations — on 2017-04-26. The hijack reached RRC00 via "
+            "AS1273 (Vodafone) on the canonical path '3333 1273 12389' and "
+            "lasted about 10 minutes."
+        ),
+        "fixture_rel": "data/rostelecom_2017.duckdb",
+        "baseline_rel": "data/baselines/rostelecom_2017_baseline.duckdb",
+        "asrel_rel": None,
+        "window_start_us": 1_493_245_800_000_000,
+        "window_end_us": 1_493_247_600_000_000,
+        "onset_us": 1_493_246_199_000_000,
+        "victim": "AS26380 (Mastercard/Edgenet) · AS2559 (PSI/USPS) · others",
+        "attacker": "AS12389 (Rostelecom)",
+        "attacker_asn": 12389,
+        "hijack_prefix": "216.119.216.0/24",
+        "path_note": (
+            "Canonical reach path '3333 → 1273 → 12389' put the hijack on RRC00 "
+            "directly via Vodafone (AS1273)."
         ),
     },
     "vodafone_idea_2024": {

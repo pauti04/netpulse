@@ -1,6 +1,6 @@
 {
-  "total": 6,
-  "tp": 6,
+  "total": 7,
+  "tp": 7,
   "fn": 0,
   "gap": 0,
   "results": [
@@ -38,6 +38,15 @@
       "outcome": "TP",
       "on_target_alerts": 1,
       "other_alerts": 4,
+      "notes": ""
+    },
+    {
+      "incident_id": "rostelecom_2017",
+      "shape": "sub-prefix hijack",
+      "expected_detector": "subprefix_hijack",
+      "outcome": "TP",
+      "on_target_alerts": 4,
+      "other_alerts": 0,
       "notes": ""
     },
     {
