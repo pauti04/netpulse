@@ -36,7 +36,7 @@ over a 51k-announce / 7.7k-prefix BGP window ≈ 39 ms.
 
 ![netpulse stream](docs/img/stream.gif)
 
-## Headline: 5 / 5 incidents detected · 0 µs streaming latency on sub-prefix hijacks
+## Headline: 6 / 6 incidents detected · 0 µs streaming latency on sub-prefix hijacks
 
 ![Per-incident detector outcomes across the labeled corpus](docs/img/corpus_matrix.svg)
 
@@ -126,6 +126,7 @@ Noise-filtered by default; add `--all` to see every alert.
 | `myetherwallet_2018`           | subprefix_hijack=5                       | HIJACK DETECTED  | **0 µs**       |
 | `google_ntt_leak_2017`         | customer_cone_leak=124,145               | LEAK DETECTED    | n/a²           |
 | `mainone_google_leak_2018`     | route_leak=1,985, customer_cone_leak=4,100 | LEAK DETECTED  | n/a²           |
+| `vodafone_idea_2024`           | route_leak=43, customer_cone_leak=1,015    | LEAK DETECTED  | n/a²           |
 
 ¹ Indosat's first AS4761 announcement is on a Bangladesh prefix not in
 the small hand-curated baseline; the detector fires on the first
@@ -187,7 +188,7 @@ which is what makes the historical benchmark reproducible.
 
 ## Headline numbers
 
-Five labeled historical incidents of distinct shape, scored on real
+Six labeled historical incidents of distinct shape, scored on real
 RIPE RIS archive data:
 
 | Incident                          | Shape                  | Outcome | Catching detector  |
@@ -197,6 +198,7 @@ RIPE RIS archive data:
 | 2018-04-24 MyEtherWallet          | sub-prefix hijack      |   TP    | `subprefix_hijack` |
 | 2018-11-12 MainOne → Google leak  | RFC 7908 Type-1 leak   |   TP    | `route_leak`       |
 | 2017-08-25 Google → Verizon → NTT | RFC 7908 Type-1 leak   |   TP    | `customer_cone_leak` |
+| 2024-09-30 Vodafone Idea AS55410  | RFC 7908 Type-1 leak   |   TP    | `customer_cone_leak` |
 
 Indosat 2014: 19 alerts — **3 exact-prefix + 16 sub-prefix** — both
 branches of `SubPrefixHijackDetector` fire from a single labeled case.

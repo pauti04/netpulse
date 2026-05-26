@@ -143,16 +143,23 @@ def score_routeleak_incident(inc: Incident) -> IncidentResult:
 
     n_valley = on_target(valley_alerts)
     n_cone = on_target(cone_alerts)
-    # The headline detector here is "any of the leak detectors fired".
-    # Report on_target as the union; other as the union's "extra" alerts.
-    if n_valley > 0:
-        catching = "route_leak"
-    elif n_cone > 0:
+    # The headline detector is whichever flavor scored more on-target
+    # alerts. ``total_alerts`` and ``total_on_target`` come from the
+    # same detector so ``other = total - on_target`` can't go negative
+    # (which is what would happen if we mixed the valley count with
+    # the cone on-target count, as an earlier version did).
+    if n_cone > n_valley:
         catching = "customer_cone_leak"
+        total_alerts = len(cone_alerts)
+        total_on_target = n_cone
+    elif n_valley > 0:
+        catching = "route_leak"
+        total_alerts = len(valley_alerts)
+        total_on_target = n_valley
     else:
         catching = "route_leak"
-    total_on_target = max(n_valley, n_cone)
-    total_alerts = len(valley_alerts) if n_valley > 0 else len(cone_alerts)
+        total_alerts = len(valley_alerts)
+        total_on_target = 0
     total_other = total_alerts - total_on_target
     if total_on_target > 0:
         outcome = "TP"

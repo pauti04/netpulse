@@ -1,6 +1,6 @@
 {
-  "total": 5,
-  "tp": 5,
+  "total": 6,
+  "tp": 6,
   "fn": 0,
   "gap": 0,
   "results": [
@@ -38,6 +38,15 @@
       "outcome": "TP",
       "on_target_alerts": 1,
       "other_alerts": 4,
+      "notes": ""
+    },
+    {
+      "incident_id": "vodafone_idea_2024",
+      "shape": "route leak (RFC 7908)",
+      "expected_detector": "customer_cone_leak",
+      "outcome": "TP",
+      "on_target_alerts": 1015,
+      "other_alerts": 0,
       "notes": ""
     },
     {

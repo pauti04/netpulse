@@ -1035,6 +1035,11 @@ _AS_NAMES: dict[int, str] = {
     3549: "Level 3",
     13030: "Init7",
     5408: "GRNET",
+    # Vodafone Idea 2024
+    55410: "Vodafone Idea",
+    9498: "Bharti Airtel",
+    45528: "Tata Communications",
+    4637: "Telstra Global",
 }
 
 
@@ -1168,6 +1173,34 @@ _DEMO_STORIES: dict[str, dict[str, Any]] = {
             "Canonical leak path: AS15562 → AS2914 → AS20485 → AS4809 → AS37282 → AS15169. "
             "203 distinct Google prefixes observed leaking through MainOne in the 90-minute "
             "window. Detected via valley-free + customer-cone path inference."
+        ),
+    },
+    "vodafone_idea_2024": {
+        "incident_type": "leak",
+        "headline": "Vodafone Idea (AS55410) tier-1-to-tier-1 leak",
+        "when": "2024-09-30 · 04:50:00 UTC onset",
+        "story": (
+            "AS55410 (Vodafone Idea / Vi India) propagated routes between its "
+            "two upstream tier-1s — AS9498 (Bharti Airtel) and AS45528 (Tata "
+            "Communications) — with a 6× AS55410 path-prepend. A botched "
+            "traffic-engineering attempt turned into a Type-1 RFC 7908 leak; "
+            "224 distinct prefixes propagated through Vi between two networks "
+            "neither of which is its customer."
+        ),
+        "fixture_rel": "data/vodafone_2024.duckdb",
+        "baseline_rel": None,
+        "asrel_rel": "data/caida_asrel_2024_09.duckdb",
+        "window_start_us": 1_727_671_800_000_000,
+        "window_end_us": 1_727_673_600_000_000,
+        "onset_us": 1_727_671_800_000_000,
+        "victim": "AS45528 (Tata) and downstream",
+        "attacker": "AS55410 (Vodafone Idea)",
+        "attacker_asn": 55410,
+        "hijack_prefix": None,
+        "path_note": (
+            "Canonical leak shape: AS9498 → AS55410 ×6 → AS45528 ×5. "
+            "AS55410 is customer to both AS9498 and AS45528; propagating "
+            "either direction is a valley-free violation."
         ),
     },
 }
@@ -1835,7 +1868,10 @@ def demo(
         str,
         typer.Option(
             "--incident",
-            help="Incident id to replay, or 'all' to play all 5 with a summary table.",
+            help=(
+                "Incident id to replay, or 'all' to play every curated "
+                "incident with a summary table."
+            ),
         ),
     ] = "youtube_2008",
     show_list: Annotated[
@@ -1871,7 +1907,7 @@ def demo(
 
     The default runs the canonical 2008 YouTube /24 sub-prefix hijack against
     a bundled real-data fixture. Use ``--incident <id>`` for any of the
-    other 4 curated corpus incidents, ``--incident all`` to play all 5
+    other curated corpus incidents, ``--incident all`` to play every one
     back-to-back with a final summary, ``--list`` to enumerate them,
     ``--all`` to include unrelated MOAS noise, and ``--live 30`` to
     swap the replay for a 30-second live tap of RIPE RIS Live.

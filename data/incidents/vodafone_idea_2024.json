@@ -1,0 +1,17 @@
+{
+  "id": "vodafone_idea_2024",
+  "name": "Vodafone Idea (AS55410) route leak",
+  "kind": "leak",
+  "start_iso": "2024-09-30T04:50:00Z",
+  "end_iso": "2024-09-30T05:20:00Z",
+  "onset_iso": "2024-09-30T04:50:00Z",
+  "expected_detectors": ["route_leak", "customer_cone_leak"],
+  "bgp_store_path": "../vodafone_2024.duckdb",
+  "asrel_path": "../caida_asrel_2024_09.duckdb",
+  "source_url": "https://stat.ripe.net/widget/routing-history#w.resource=AS55410",
+  "prefix": null,
+  "attacker_asn": 55410,
+  "victim_asn": null,
+  "notes": "AS55410 (Vodafone Idea / Vi India) propagated routes between its two upstream tier-1s -- AS9498 (Bharti Airtel) and AS45528 (Tata Communications) -- with a 6x AS55410 path-prepend, indicating a misconfigured traffic-engineering attempt that turned into a Type-1 RFC 7908 leak. onset_iso is the first AS55410 transit observation at RRC00 in the data fetched on 2026-05-26 (path '131477 60068 4637 9498 55410 55410 55410 55410 55410 55410 45528 45528 45528 45528 45528', prefix 113.193.197.0/24, 04:50:00Z). 9,394 valid paths captured in the 30-minute window; 224 distinct prefixes observed leaking through AS55410 in the 9498->55410->45528 direction. Both the valley-free route_leak detector (43 alerts) and the customer_cone_leak detector (1,015 alerts) fire entirely through AS55410 on these paths. Primary-source URL points to RIPE Stat's authoritative routing-history view for AS55410; the BGP archive itself (RRC00 MRT dump) is the underlying evidence.",
+  "verified": true
+}

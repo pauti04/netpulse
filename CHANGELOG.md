@@ -9,6 +9,30 @@ deployment has soaked, an initial 1.0 will lock the schema.
 ## [unreleased]
 
 ### Added
+- **Corpus N=5 → N=6.** Vodafone Idea (AS55410) tier-1-to-tier-1 leak
+  of 2024-09-30 added to `data/incidents/vodafone_idea_2024.json`.
+  Real RIS data: 9,394 paths from rrc00 over a 30-minute window with
+  filter `path "_55410_"`, 224 distinct prefixes leaking in the
+  `AS9498 → AS55410 → AS45528` direction with a 6× AS55410 path-prepend
+  (a botched traffic-engineering attempt). Both detectors fire
+  on-target: route_leak = 43, customer_cone_leak = 1,015, all through
+  AS55410. CAIDA serial-2 snapshot 20240901 fetched into
+  `data/caida_asrel_2024_09.duckdb`. Demo gets a matching
+  `_DEMO_STORIES` entry + AS-name annotations (`AS55410 (Vodafone Idea)`,
+  `AS9498 (Bharti Airtel)`, `AS45528 (Tata Communications)`).
+- Corpus benchmark roll-up regenerated: **6/6 TP / 0 FN / 0 GAP**,
+  100% detector-coverage rate. `docs/img/corpus_matrix.svg` re-rendered.
+
+### Fixed
+- **`scripts/run_corpus_benchmark.py`** had a sign bug in `other_alerts`
+  for leak incidents: when one detector fired more on-target alerts
+  than the other, the runner mixed `len(valley_alerts)` with the
+  cone detector's on-target count, producing negative "other" totals
+  (Vodafone first reported `other=-972`). Fixed by routing
+  `total_alerts`, `total_on_target`, and `catching` through the same
+  detector branch.
+
+### (other Added — pre-existing this release)
 - **`netpulse demo --live N`** taps RIPE RIS Live for N seconds (1-600)
   and pipes every update through MOAS in real time. A rich.Live
   panel updates 4×/sec with rolling counters: updates, prefixes,
