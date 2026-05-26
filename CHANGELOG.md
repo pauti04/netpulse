@@ -8,6 +8,26 @@ deployment has soaked, an initial 1.0 will lock the schema.
 
 ## [unreleased]
 
+### Added
+- **`netpulse demo --live N`** taps RIPE RIS Live for N seconds (1-600)
+  and pipes every update through MOAS in real time. A rich.Live
+  panel updates 4×/sec with rolling counters: updates, prefixes,
+  distinct peers, collectors observed, and MOAS alerts emitted.
+  Border flips green→red the moment the first alert fires. Final
+  summary table prints duration / rate / per-collector stats.
+  Verified live: 8,471 updates / 8 s = ~1,054/s across 23
+  collectors and 160 peers on a fresh tap.
+- **Startup Panel for `netpulse stream`** matching the demo style:
+  the connection params, baseline size, and history path are
+  shown up-front so the operator knows what they're tapping.
+
+## [0.1.0] — 2026-05-25
+
+First versioned release. Detector roster + 5-incident corpus + live
+deployment + Streamlit dashboard + observability + ARTEMIS-comparison
+scaffolding all stable. Schema considered locked for the 0.1 series;
+breaking changes will bump 0.2 / 1.0 as the corpus grows toward N=10.
+
 ### Changed
 - **`netpulse demo` round-3 polish:**
   - **`--incident all`** plays all 5 corpus incidents back-to-back

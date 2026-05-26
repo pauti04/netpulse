@@ -9,9 +9,9 @@ We describe NetPulse, an open-source detector for BGP anomalies
 (sub-prefix hijacks, multi-origin events, route leaks, RPKI-invalid
 announcements) packaged with a public, reproducible benchmark on labeled
 historical incidents and on a controlled false-positive survey of
-neighboring time windows. Across a 4-incident corpus assembled from
+neighboring time windows. Across a 5-incident corpus assembled from
 RIPE RIS archive data, NetPulse's detectors reach the incident in
-**4/4** cases — every labeled hijack and leak fires, including the
+**5/5** cases — every labeled hijack and leak fires, including the
 2017-08 Google → Verizon → NTT case that the standard pair-direction
 valley-free check (RFC 7908 §3.1 applied to CAIDA serial-2 data)
 abstains on. The case is caught by a **customer-cone-aware** variant
@@ -130,7 +130,7 @@ Current corpus result (`docs/corpus_benchmark.json`,
 `docs/img/corpus_matrix.svg`):
 
 ```
-N=4    TP=4    FN=0    GAP=0
+N=5    TP=5    FN=0    GAP=0
 ```
 
 The 2017-08 Google → Verizon → NTT leak — previously reported as

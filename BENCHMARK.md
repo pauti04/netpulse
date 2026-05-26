@@ -1,15 +1,17 @@
 # Benchmark — BGP detectors on real RIPE RIS archive data
 
 The point of NetPulse is **honest evaluation against labeled historical
-incidents**. Four cases are populated covering two distinct shapes — two
-sub-prefix hijacks and two RFC 7908 Type-1 leaks — and the detector
-roster catches **4 / 4** with **0 FN** and **0 GAP**.
+incidents**. Five cases are populated covering two distinct shapes —
+three sub-prefix hijacks (one of which exercises both detector branches
+in a single incident) and two RFC 7908 Type-1 leaks — and the detector
+roster catches **5 / 5** with **0 FN** and **0 GAP**.
 
 ## Per-incident outcomes
 
 | Incident                          | Shape                  | Catching detector  | Detected? | Real-data evidence in the pull |
 | --------------------------------- | ---------------------- | ------------------ | :-------: | ----- |
 | 2008-02-24 YouTube / Pakistan     | sub-prefix hijack      | `subprefix_hijack` |    ✅     | first AS17557 announcement of `208.65.153.0/24` at RRC00: **2008-02-24 18:47:57Z**, matches the RIPE NCC case study |
+| 2014-04-02 Indosat / AS4761 MOAS  | sub-prefix hijack      | `subprefix_hijack` |    ✅     | RRC00 path filter `path "_4761$"` pulls 51,203 records over the 18:20-18:40 UTC window covering 3,728 distinct AS4761-origin prefixes; 3,674 are outside Indosat's 114.4.0.0/15 allocation. **19 alerts** fire — 3 exact-prefix (Case 1) + 16 sub-prefix (Case 2) — so the same detector exercises both branches in a single labeled case. |
 | 2018-04-24 MyEtherWallet          | sub-prefix hijack      | `subprefix_hijack` |    ✅     | first AS10297 announcement of `205.251.192.0/24` at RRC00: **2018-04-24 11:05:50Z**; all 5 hijacked /24s detected as more-specifics of Amazon AS16509's /23 supernets, 0 FPs |
 | 2018-11-12 MainOne → Google leak  | RFC 7908 Type-1 leak   | `route_leak`       |    ✅     | first AS37282 transit observation at RRC00: **2018-11-12 21:12:16Z**, matches BGPmon's reported onset to the second; 203 distinct Google prefixes seen leaked; **1,985 MainOne-shape leak alerts** with the time-aligned CAIDA serial-2 (20181101) snapshot |
 | 2017-08-25 Google → Verizon → NTT | RFC 7908 Type-1 leak   | `customer_cone_leak` |  ✅     | the pair-direction valley-free check abstains on the canonical leak path `3333 1103 286 701 15169 4713` (the 15169→4713 step is `unknown` in CAIDA 2017-08); the customer-cone-aware variant fires because NTT OCN (AS4713) is *not* in Google's 2017 customer cone (10 ASes). **123,749 leak alerts** across the documented leak window |
@@ -266,7 +268,7 @@ uv run netpulse detect leak \
 ```
 
 The corpus benchmark picks the catching detector per-incident
-(valley-free first, cone as fallback) so the headline 4/4 number is
+(valley-free first, cone as fallback) so the headline 5/5 number is
 the union of both, with each incident's row labeled by which one
 fired.
 
@@ -471,4 +473,6 @@ benchmark [`netpulse benchmark stream-latency`, 0 µs on the labeled
 sub-prefix incidents], cross-collector aggregation [repeatable `--in`
 flag on `detect bgp`, read-only DuckDB ATTACH + UNION ALL view],
 customer-cone-aware leak detector [`customer_cone_leak`, closes the
-Google 2017 GAP — corpus is now 4 / 4 with 0 GAP].)
+Google 2017 GAP], Indosat 2014 MOAS hijack added [exercises both
+SubPrefixHijackDetector branches in one labeled case — corpus is
+now 5 / 5 with 0 GAP].)

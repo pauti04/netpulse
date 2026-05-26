@@ -187,17 +187,30 @@ which is what makes the historical benchmark reproducible.
 
 ## Headline numbers
 
-Four labeled historical incidents of distinct shape, scored on real
+Five labeled historical incidents of distinct shape, scored on real
 RIPE RIS archive data:
 
 | Incident                          | Shape                  | Outcome | Catching detector  |
 | --------------------------------- | ---------------------- | :-----: | ------------------ |
 | 2008-02-24 YouTube / Pakistan     | sub-prefix hijack      |   TP    | `subprefix_hijack` |
+| 2014-04-02 Indosat / AS4761 MOAS  | sub-prefix hijack      |   TP    | `subprefix_hijack` |
 | 2018-04-24 MyEtherWallet          | sub-prefix hijack      |   TP    | `subprefix_hijack` |
 | 2018-11-12 MainOne → Google leak  | RFC 7908 Type-1 leak   |   TP    | `route_leak`       |
 | 2017-08-25 Google → Verizon → NTT | RFC 7908 Type-1 leak   |   TP    | `customer_cone_leak` |
 
-MyEtherWallet: all five hijacked /24s flagged correctly (`205.251.192/193/195/197/199.0/24` from AS10297 vs Amazon AS16509's /23 supernets). Onset at RRC00: 2018-04-24 11:05:50 UTC. MainOne: 1,985 leak alerts on the actual AS37282→AS15169 path shape using time-aligned CAIDA serial-2 (20181101) data. Google/NTT 2017: 123,749 leak alerts via the customer-cone-aware detector — the pair-direction valley-free check abstained, but Google's 2017-08 customer cone (10 ASes) provably does not contain NTT OCN, so the step 15169→4713 is "uphill" and the path is not cone-monotone. See [`docs/paper.md`](docs/paper.md) §3.2 for the `TP / FN / GAP` methodology.
+Indosat 2014: 19 alerts — **3 exact-prefix + 16 sub-prefix** — both
+branches of `SubPrefixHijackDetector` fire from a single labeled case.
+MyEtherWallet: all five hijacked /24s flagged correctly
+(`205.251.192/193/195/197/199.0/24` from AS10297 vs Amazon AS16509's
+/23 supernets). Onset at RRC00: 2018-04-24 11:05:50 UTC. MainOne:
+1,985 leak alerts on the actual AS37282→AS15169 path shape using
+time-aligned CAIDA serial-2 (20181101) data. Google/NTT 2017: 123,749
+leak alerts via the customer-cone-aware detector — the pair-direction
+valley-free check abstained, but Google's 2017-08 customer cone (10
+ASes) provably does not contain NTT OCN, so the step 15169→4713 is
+"uphill" and the path is not cone-monotone. See
+[`docs/paper.md`](docs/paper.md) §3.2 for the `TP / FN / GAP`
+methodology.
 
 False-positive survey of the BGP hijack detector across **5 hours of
 real RRC00 data** (1 hijack hour + 4 background hours, 13,961 distinct

@@ -908,10 +908,12 @@ def stream(
     interval_us = _parse_duration_to_us(interval)
 
     detectors: list[DetectorBase[BGPWindowFeatures]] = [MOASDetector()]
+    baseline_size: int | None = None
     if baseline_path is not None:
         with BGPStore(baseline_path) as bs:
             baseline = BGPBaseline.from_store(bs)
-        console.log(f"loaded baseline: {len(baseline.origins)} prefixes")
+        baseline_size = len(baseline.origins)
+        console.log(f"loaded baseline: {baseline_size} prefixes")
         detectors.append(SubPrefixHijackDetector(baseline))
 
     from netpulse.alerts.dedup import AlertDeduper
@@ -930,6 +932,23 @@ def stream(
     total_received = 0
     suppressed = 0
 
+    from rich.panel import Panel
+
+    intro_body = (
+        f"[bold white]Tapping RIPE RIS Live[/]\n\n"
+        f"window=[bold]{window}[/]  ·  evaluate every [bold]{interval}[/]"
+        + (f"  ·  host=[bold]{host_filter}[/]" if host_filter else "")
+        + (f"  ·  baseline=[bold]{baseline_size}[/] supernets" if baseline_size is not None else "")
+        + (f"  ·  history=[bold]{history_path}[/]" if history_path else "")
+    )
+    console.print(
+        Panel(
+            intro_body,
+            title="[bold cyan]⚡ NetPulse · stream[/]",
+            border_style="cyan",
+            expand=False,
+        )
+    )
     console.log(f"connecting to RIS Live (window={window}, interval={interval})...")
     try:
         for upd in stream_updates(host_filter=host_filter):
@@ -1664,6 +1683,152 @@ def _render_demo_summary_table(results: list[dict[str, Any]]) -> None:
     console.print(table)
 
 
+def _run_live_demo(seconds: int) -> None:
+    """Tap RIS Live for ``seconds`` and stream BGP through MOAS in real time.
+
+    Renders a live-updating Rich panel showing rolling counts of
+    updates seen, prefixes touched, peers, and any alerts fired. At
+    the end, prints a summary panel + a small "headline numbers"
+    block so the demo viewer leaves with concrete figures.
+    """
+    import time as _time
+    from collections import deque
+
+    from rich.live import Live
+    from rich.panel import Panel
+    from rich.table import Table
+
+    from netpulse.alerts.dedup import AlertDeduper
+    from netpulse.detectors.moas import MOASDetector
+    from netpulse.features.bgp import BGPWindowFeatures
+    from netpulse.ingest.stream import StreamUpdate, stream_updates
+
+    if seconds <= 0 or seconds > 600:
+        console.print("[red]--live seconds must be 1..600.[/]")
+        raise typer.Exit(1)
+
+    # Story panel up front so the viewer knows what's about to happen.
+    intro = (
+        f"[bold white]Tapping RIPE RIS Live for {seconds}s[/]\n\n"
+        f"Every BGP update on the public RIS WebSocket flows through "
+        f"NetPulse's MOAS detector. The counters below update in real "
+        f"time as peers from every RIS collector report announcements "
+        f"and withdrawals."
+    )
+    console.print(
+        Panel(
+            intro,
+            title="[bold cyan]⚡ NetPulse · live tap[/]",
+            border_style="cyan",
+            expand=False,
+        )
+    )
+    console.print()
+
+    moas = MOASDetector()
+    deduper = AlertDeduper()
+    rolling: deque[StreamUpdate] = deque()
+    window_us = 60 * 1_000_000  # 60-second rolling window
+
+    started = _time.monotonic()
+    deadline = started + seconds
+    total_updates = 0
+    total_alerts = 0
+    last_recompute = 0.0
+    peers: set[int] = set()
+    hosts: set[str] = set()
+
+    def _panel(now: float, alerts_seen: int) -> Panel:
+        elapsed = now - started
+        remaining = max(0.0, deadline - now)
+        rate = total_updates / max(elapsed, 0.001)
+        body = (
+            f"[bold green]{total_updates:>7,}[/] updates    "
+            f"[dim]({rate:.0f}/s)[/]\n"
+            f"[bold]{len(rolling):>7,}[/] in 60s window\n"
+            f"[bold cyan]{len(peers):>7}[/] distinct peers\n"
+            f"[bold cyan]{len(hosts):>7}[/] RIS collectors observed\n"
+            f"[bold {'red' if alerts_seen else 'dim'}]{alerts_seen:>7}[/] MOAS alerts emitted\n\n"
+            f"[dim]elapsed {elapsed:.0f}s · remaining {remaining:.0f}s[/]"
+        )
+        border = "red" if alerts_seen > 0 else "green"
+        return Panel(body, title="[bold]live[/]", border_style=border, expand=False)
+
+    try:
+        with Live(_panel(_time.monotonic(), 0), refresh_per_second=4, console=console) as live:
+            for upd in stream_updates():
+                total_updates += 1
+                rolling.append(upd)
+                hosts.add(upd.host)
+                peers.add(upd.peer_asn)
+
+                now_wall = _time.monotonic()
+                # Trim the rolling window to 60s of stream-time.
+                cutoff = upd.timestamp_us - window_us
+                while rolling and rolling[0].timestamp_us < cutoff:
+                    rolling.popleft()
+
+                # Recompute detector + repaint at most 4 times/sec.
+                if now_wall - last_recompute >= 0.25:
+                    last_recompute = now_wall
+                    feats = BGPWindowFeatures(
+                        window_start_us=cutoff,
+                        window_end_us=upd.timestamp_us,
+                    )
+                    for r in rolling:
+                        if r.update_type == "A":
+                            feats.announce_count_by_prefix[r.prefix] = (
+                                feats.announce_count_by_prefix.get(r.prefix, 0) + 1
+                            )
+                            if r.origin_as is not None:
+                                feats.origins_by_prefix.setdefault(r.prefix, set()).add(r.origin_as)
+                        else:
+                            feats.withdraw_count_by_prefix[r.prefix] = (
+                                feats.withdraw_count_by_prefix.get(r.prefix, 0) + 1
+                            )
+                    raw_alerts = moas.score(feats)
+                    fresh = list(deduper.filter(raw_alerts))
+                    total_alerts += len(fresh)
+                    live.update(_panel(now_wall, total_alerts))
+
+                if now_wall >= deadline:
+                    break
+    except KeyboardInterrupt:
+        console.print("[dim]stopped by user[/]")
+    except Exception as e:  # noqa: BLE001
+        console.print(f"[red]live stream failed: {e}[/]")
+        console.print(
+            "[dim]This usually means the RIS Live WebSocket couldn't be reached. "
+            "Try `uv run netpulse demo` (offline, bundled fixture) instead.[/]"
+        )
+        return
+
+    # ----- Final summary -----
+    elapsed = _time.monotonic() - started
+    summary_table = Table(
+        title="[bold cyan]live tap summary[/]",
+        border_style="cyan",
+        show_header=False,
+        expand=False,
+    )
+    summary_table.add_column("k", style="dim")
+    summary_table.add_column("v", style="bold")
+    summary_table.add_row("Duration", f"{elapsed:.1f}s")
+    summary_table.add_row("Updates received", f"{total_updates:,}")
+    summary_table.add_row("Average rate", f"{total_updates / max(elapsed, 0.001):.0f} updates/s")
+    summary_table.add_row("Distinct peers", str(len(peers)))
+    summary_table.add_row("RIS collectors observed", str(len(hosts)))
+    summary_table.add_row("MOAS alerts emitted", str(total_alerts))
+    console.print()
+    console.print(summary_table)
+    console.print(
+        "[dim]MOAS alerts on a live tap are mostly anycast / multi-homed prefixes "
+        "(Google AS15169 / Cloudflare AS13335 / Akamai). The "
+        "[/][cyan]netpulse stream --baseline path/to/rib.duckdb[/] "
+        "[dim]flow adds sub-prefix detection on top.[/]"
+    )
+
+
 @app.command("demo")
 def demo(
     incident_id: Annotated[
@@ -1690,6 +1855,17 @@ def demo(
             ),
         ),
     ] = False,
+    live_seconds: Annotated[
+        int,
+        typer.Option(
+            "--live",
+            help=(
+                "Tap RIPE RIS Live for N seconds with live counters + "
+                "MOAS detection, instead of replaying a labeled incident. "
+                "Set to 0 to disable (default)."
+            ),
+        ),
+    ] = 0,
 ) -> None:
     """Replay a labeled BGP incident against a bundled or local fixture (~1s, no setup).
 
@@ -1697,11 +1873,17 @@ def demo(
     a bundled real-data fixture. Use ``--incident <id>`` for any of the
     other 4 curated corpus incidents, ``--incident all`` to play all 5
     back-to-back with a final summary, ``--list`` to enumerate them,
-    and ``--all`` to include unrelated MOAS noise.
+    ``--all`` to include unrelated MOAS noise, and ``--live 30`` to
+    swap the replay for a 30-second live tap of RIPE RIS Live.
     """
     from rich.table import Table
 
     repo_root = Path(__file__).resolve().parent.parent.parent
+
+    # ----- --live short-circuit -----
+    if live_seconds > 0:
+        _run_live_demo(live_seconds)
+        return
 
     # ----- --list short-circuit -----
     if show_list:
