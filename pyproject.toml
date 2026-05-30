@@ -89,7 +89,7 @@ module = ["tests.*", "scripts.*"]
 ignore_errors = true
 
 [[tool.mypy.overrides]]
-module = ["pybgpstream", "pybgpstream.*", "ripe.*", "duckdb"]
+module = ["pybgpstream", "pybgpstream.*", "ripe.*", "duckdb", "streamlit", "streamlit.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
