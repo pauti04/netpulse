@@ -78,13 +78,15 @@ networks. RFC 6811 §2 correctness preserved.
 
 **8/**
 
-Live HTTP surface: https://netpulse-pauti.fly.dev/health
+Runs cold in 30s — no API keys, no native libs:
 
 ```
-curl -X POST https://netpulse-pauti.fly.dev/detect/bgp \
-  -H 'Content-Type: application/json' \
-  -d '{"start_iso":"2008-02-24T18:45:00Z","duration_s":300}'
+git clone https://github.com/pauti04/netpulse && cd netpulse
+uv sync && uv run netpulse demo
 ```
+
+HTTP API ships in-repo (`netpulse serve`); one-click deploy via the
+committed render.yaml.
 
 Full writeup: docs/paper.md
 MIT. Python 3.11. DuckDB + libBGPStream.

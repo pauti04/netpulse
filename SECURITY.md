@@ -32,8 +32,8 @@ Out of scope:
 
 - Issues in the upstream feeds themselves (CAIDA, RIPE NCC, Cloudflare
   RPKI, etc.). Report those to the publishers.
-- Denial-of-service against the live `netpulse-pauti.fly.dev` deployment;
-  the auto-stop machine policy is the documented behavior.
+- Denial-of-service against any self-hosted deployment of the FastAPI
+  surface; rate-limiting and exposure are the operator's responsibility.
 - Anything requiring a social-engineering vector against a maintainer.
 
 ## Out-of-scope but please tell me anyway

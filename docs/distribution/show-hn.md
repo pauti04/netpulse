@@ -39,7 +39,9 @@ NetPulse is opinionated about that part:
 - Multi-signal correlator that fires on the MainOne 2018 leak when
   the BGP route-leak detector (1,985 alerts on the actual leak shape)
   co-occurs with a 1.31× Atlas median-RTT jump on the same window.
-- Live: `curl https://netpulse-pauti.fly.dev/health`.
+- Runs cold in 30 s: `git clone … && uv sync && netpulse demo`. No
+  API keys, no native libs. HTTP API ships in-repo (`netpulse serve`)
+  and deploys to any Docker host via the committed `render.yaml`.
 
 The detector logic is textbook — RFC 6811 origin validation with
 longest-prefix-match (43 µs / call against 859k VRPs), RFC 7908
@@ -73,7 +75,7 @@ valley-free) and an Atlas RTT-jump check on the same window of real
 - Correlator binds them into one fused critical alert.
 
 `scripts/fusion_demo.py` reproduces the whole thing from the bundled
-data. Live FastAPI at netpulse-pauti.fly.dev.
+data. HTTP API ships in-repo via `netpulse serve`.
 
 The full benchmark covers 4 labeled incidents (4 TP / 0 GAP / 0 FN
 — the 2017 Google leak required a customer-cone-aware leak detector

@@ -50,7 +50,7 @@ Data flow: `ingest -> storage -> features -> detectors -> alerts -> (publishers 
 - API: FastAPI + uvicorn
 - CLI: Typer + Rich for output
 - Dashboard (later): Streamlit
-- Deploy: Fly.io (live at <https://netpulse-pauti.fly.dev/>)
+- Deploy: Dockerfile → any container host; `render.yaml` Blueprint (free tier) + `fly.toml` committed
 - License: MIT
 - CI: GitHub Actions running ruff + mypy + pytest on push to main
 

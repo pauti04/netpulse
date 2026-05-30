@@ -5,18 +5,24 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 
 Open-source detector for Internet outages and BGP anomalies, evaluated
-against real RIPE RIS archive data with a public reproducible benchmark.
+against real RIPE RIS archive data with a public, reproducible benchmark:
+**7 / 7 labeled historical incidents detected, 0 false negatives.**
 
-**Live demo:** [`netpulse-pauti.fly.dev`](https://netpulse-pauti.fly.dev/health) —
-hits a deployed FastAPI bound to the 2008 YouTube /24 hijack fixture +
-RIB baseline. `POST /detect/bgp` returns alerts as JSON; `GET /alerts`
-queries persisted history.
+**Try it in 30 seconds — no API keys, no deploy, no native libs:**
 
 ```sh
-curl -X POST https://netpulse-pauti.fly.dev/detect/bgp \
-    -H 'Content-Type: application/json' \
-    -d '{"start_iso":"2008-02-24T18:45:00Z","duration_s":300}'
+git clone https://github.com/pauti04/netpulse && cd netpulse
+uv sync
+uv run netpulse demo                  # 2008 YouTube hijack, bundled real data, ~1s
+uv run netpulse demo --incident all   # roll up all 7 corpus incidents
 ```
+
+The demo replays the canonical 2008 YouTube `/24` hijack against a
+bundled slice of real RRC00 archive data and prints the detection —
+story, the actual hijacker AS-path pulled from the archive, and a
+color-coded verdict — in about a second. A hosted HTTP API
+(`POST /detect/bgp`) ships in the repo and deploys to any Docker host;
+see [Deploy](#deploy).
 
 **Real performance numbers** (benchmark methodology in [`BENCHMARK.md`](BENCHMARK.md#performance)):
 RPKI validate against 859k VRPs ≈ **43 µs / call** (~23k / sec, after a
@@ -106,8 +112,8 @@ Atlas loss spike, and DNS reachability (active probes via
 git clone https://github.com/pauti04/netpulse && cd netpulse
 uv sync                                  # core install (no native deps)
 uv run netpulse demo                     # 2008 YouTube hijack (bundled)
-uv run netpulse demo --list              # all 5 curated incidents
-uv run netpulse demo --incident all      # play all 5 + roll-up table
+uv run netpulse demo --list              # all 7 curated incidents
+uv run netpulse demo --incident all      # play all 7 + roll-up table
 ```
 
 Each demo prints a story panel describing the incident, pulls the
@@ -122,12 +128,12 @@ Noise-filtered by default; add `--all` to see every alert.
 | Incident                       | Detectors fired                          | Verdict          | Stream latency |
 |--------------------------------|------------------------------------------|------------------|----------------|
 | `youtube_2008`                 | moas=2, subprefix_hijack=1               | HIJACK DETECTED  | **0 µs**       |
+| `rostelecom_2017`              | subprefix_hijack=4 (financial network)     | HIJACK DETECTED| 1 s            |
+| `google_ntt_leak_2017`         | customer_cone_leak=124,145               | LEAK DETECTED    | n/a²           |
 | `indosat_2014`                 | subprefix_hijack=19 (both branches)      | HIJACK DETECTED  | 99 s¹          |
 | `myetherwallet_2018`           | subprefix_hijack=5                       | HIJACK DETECTED  | **0 µs**       |
-| `google_ntt_leak_2017`         | customer_cone_leak=124,145               | LEAK DETECTED    | n/a²           |
 | `mainone_google_leak_2018`     | route_leak=1,985, customer_cone_leak=4,100 | LEAK DETECTED  | n/a²           |
 | `vodafone_idea_2024`           | route_leak=43, customer_cone_leak=1,015    | LEAK DETECTED  | n/a²           |
-| `rostelecom_2017`              | subprefix_hijack=4 (financial network)     | HIJACK DETECTED| 1 s            |
 
 ¹ Indosat's first AS4761 announcement is on a Bangladesh prefix not in
 the small hand-curated baseline; the detector fires on the first
@@ -281,21 +287,27 @@ Reproduction commands and methodology: [BENCHMARK.md](BENCHMARK.md).
 
 ## Deploy
 
-A `Dockerfile` and `fly.toml` ship the FastAPI surface as a container.
-The image bakes in the bundled YouTube fixture + RIB baseline, so a
-fresh deployment answers `POST /detect/bgp` against the canonical
-incident with no setup:
+A `Dockerfile` ships the FastAPI surface as a container. The image
+bakes in the bundled YouTube fixture + RIB baseline, so a fresh
+deployment answers `POST /detect/bgp` against the canonical incident
+with no setup. The deployed `/health` endpoint reports the loaded
+baseline size; `/ready` gates on a DuckDB sanity check; `POST
+/detect/bgp` accepts `{start_iso, duration_s}` and returns the same
+alerts the CLI prints, as JSON.
+
+**Render (free tier, no card):** a [`render.yaml`](render.yaml)
+Blueprint is committed — connect the repo at
+[dashboard.render.com/blueprints](https://dashboard.render.com/blueprints)
+and Render builds the Dockerfile onto a `*.onrender.com` URL in ~3 min.
+
+**Fly.io:** a `fly.toml` is committed for an always-on deploy.
 
 ```sh
-brew install flyctl                 # one-time
-flyctl auth login                   # one-time
 flyctl deploy --app=<your-name>     # builds Dockerfile, ships
 ```
 
-The deployed `/health` endpoint reports the loaded baseline size;
-`POST /detect/bgp` accepts `{start_iso, duration_s}` and returns the
-same alerts the CLI prints, as JSON. To swap stores, mount different
-DuckDB files as a volume and override the CMD in `fly.toml`.
+To swap stores, mount different DuckDB files as a volume and override
+the container CMD.
 
 ## Install for full BGP/Atlas pulls
 

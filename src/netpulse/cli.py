@@ -2009,9 +2009,9 @@ def demo(
 
     if incident_id == "youtube_2008":
         console.print(
-            "[dim]Reproduce live: "
-            "[/][cyan]curl -X POST https://netpulse-pauti.fly.dev/detect/bgp "
-            "-H 'Content-Type: application/json' "
+            "[dim]Same detection over HTTP: "
+            "[/][cyan]netpulse serve[/][dim] then "
+            "[/][cyan]curl -X POST localhost:8000/detect/bgp "
             '-d \'{"start_iso":"2008-02-24T18:45:00Z","duration_s":300}\'[/]'
         )
     console.print(
