@@ -143,6 +143,29 @@ to 0 µs.
 ² Stream-latency only measured for sub-prefix hijacks; leaks use a
 different per-record harness.
 
+### Forensic deep-dive: how did it spread?
+
+Where `demo` is a snapshot, `netpulse explain` reconstructs *how the
+anomaly propagated* across the global routing table — straight from the
+archive:
+
+```sh
+uv run netpulse explain                                  # 2008 YouTube hijack
+uv run netpulse explain --incident mainone_google_leak_2018
+```
+
+![netpulse explain forensic reconstruction](docs/img/explain.gif)
+
+It computes, over the same `BGPStore` the detectors read, how many
+independent RIS/RouteViews peers observed the event, how fast it reached
+them (a cumulative spread curve), and how many distinct AS paths carried
+it. The 2008 YouTube hijack reached **11/11 observable vantage points in
+32 s via 21 distinct paths**; the 2018 MainOne leak traversed **24/24
+peers via 480 paths**. Hijacks trace by origin (`prefix` originated by
+the attacker); leaks trace by transit (paths traversing the leaking AS).
+The math lives in [`forensics.py`](src/netpulse/forensics.py) behind a
+pure, unit-tested assembler.
+
 For a live tap of the global routing table:
 
 ```sh

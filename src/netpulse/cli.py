@@ -1147,6 +1147,7 @@ _DEMO_STORIES: dict[str, dict[str, Any]] = {
         "victim": "AS4713 (NTT OCN)",
         "attacker": "AS15169 (Google) via AS701 (Verizon)",
         "attacker_asn": 4713,
+        "leaker_asn": 701,  # Verizon propagated the leaked routes globally
         "hijack_prefix": None,
         "path_note": (
             "Canonical leak path: AS3333 → AS1103 → AS286 → AS701 → AS15169 → AS4713. "
@@ -1173,6 +1174,7 @@ _DEMO_STORIES: dict[str, dict[str, Any]] = {
         "victim": "AS15169 (Google)",
         "attacker": "AS37282 (MainOne)",
         "attacker_asn": 15169,
+        "leaker_asn": 37282,  # MainOne is the leaking transit AS
         "hijack_prefix": None,
         "path_note": (
             "Canonical leak path: AS15562 → AS2914 → AS20485 → AS4809 → AS37282 → AS15169. "
@@ -1227,6 +1229,7 @@ _DEMO_STORIES: dict[str, dict[str, Any]] = {
         "victim": "AS45528 (Tata) and downstream",
         "attacker": "AS55410 (Vodafone Idea)",
         "attacker_asn": 55410,
+        "leaker_asn": 55410,  # Vodafone Idea is itself the leaking AS
         "hijack_prefix": None,
         "path_note": (
             "Canonical leak shape: AS9498 → AS55410 ×6 → AS45528 ×5. "
@@ -2018,6 +2021,152 @@ def demo(
         "[dim]More:[/] [cyan]netpulse demo --incident all[/]"
         "  [dim]·[/]  [cyan]netpulse demo --list[/]"
         "  [dim]·[/]  [cyan]netpulse demo --all[/]"
+    )
+
+
+def _render_propagation_curve(timeline: Any, width: int = 32) -> None:
+    """Render the cumulative-spread-over-time curve as horizontal bars."""
+    from rich.panel import Panel
+
+    curve = timeline.spread_curve(n_buckets=10)
+    total = timeline.total_peers_in_window
+    if not curve or total <= 0:
+        console.print("[dim]No propagation data to plot.[/]")
+        return
+
+    lines: list[str] = []
+    for offset_us, cum in curve:
+        frac = cum / total
+        filled = round(frac * width)
+        bar = "█" * filled + "░" * (width - filled)
+        secs = offset_us / 1_000_000
+        lines.append(
+            f"[cyan]+{secs:6.1f}s[/] [green]{bar}[/] "
+            f"[bold]{cum:>3}[/]/{total} [dim]({frac * 100:.0f}%)[/]"
+        )
+    console.print(
+        Panel(
+            "\n".join(lines),
+            title="[bold]Spread across observable vantage points[/]",
+            border_style="green",
+            expand=False,
+        )
+    )
+
+
+@app.command("explain")
+def explain(
+    incident_id: Annotated[
+        str,
+        typer.Option("--incident", help="Incident id to reconstruct (see `demo --list`)."),
+    ] = "youtube_2008",
+    n_peers: Annotated[
+        int,
+        typer.Option("--peers", help="How many earliest vantage points to list."),
+    ] = 8,
+) -> None:
+    """Forensic deep-dive: reconstruct *how* an incident propagated.
+
+    Where `demo` shows a snapshot ("these detectors fired"), `explain`
+    reconstructs the spread: how many independent RIS/RouteViews peers
+    saw the anomaly, how fast it reached them, and how many distinct AS
+    paths carried it — pulled straight from the archive.
+    """
+    from rich.panel import Panel
+    from rich.table import Table
+
+    from netpulse.forensics import reconstruct_propagation
+    from netpulse.storage.duckdb_store import BGPStore
+
+    repo_root = Path(__file__).resolve().parent.parent.parent
+
+    if incident_id not in _DEMO_STORIES:
+        console.print(
+            f"[red]No incident '{incident_id}'.[/] Known: {', '.join(sorted(_DEMO_STORIES))}"
+        )
+        raise typer.Exit(1)
+
+    meta = _DEMO_STORIES[incident_id]
+    fixture = repo_root / meta["fixture_rel"]
+    if not fixture.exists():
+        console.print(f"[red]Fixture missing at {fixture}.[/]")
+        raise typer.Exit(1)
+
+    # For leaks, trace the leaking transit AS (transit mode); for hijacks,
+    # trace the attacker's origin of the hijacked prefix (origin mode).
+    leaker_asn = meta.get("leaker_asn")
+    if leaker_asn is not None:
+        subject_asn = int(leaker_asn)
+        prefix = None
+    else:
+        subject_asn = int(meta["attacker_asn"])
+        prefix = meta.get("hijack_prefix")
+    onset_us = int(meta.get("onset_us") or meta["window_start_us"])
+
+    # ----- Header -----
+    mode_label = (
+        f"prefix [bold]{prefix}[/] originated by {_as_with_name(subject_asn)}"
+        if prefix is not None
+        else f"AS paths traversing {_as_with_name(subject_asn)}"
+    )
+    console.print(
+        Panel(
+            f"[bold white]{meta['headline']}[/]\n[dim]{meta['when']}[/]\n\nTracing: {mode_label}",
+            title=f"[bold cyan]🔬 forensics[/] [dim]·[/] {incident_id}",
+            border_style="cyan",
+            expand=False,
+        )
+    )
+
+    with BGPStore(fixture) as store:
+        timeline = reconstruct_propagation(
+            store,
+            subject_asn=subject_asn,
+            prefix=prefix,
+            onset_us=onset_us,
+            window_start_us=int(meta["window_start_us"]),
+            window_end_us=int(meta["window_end_us"]),
+        )
+
+    if timeline.reached_count == 0:
+        console.print(
+            "[yellow]No vantage points observed this subject in the window.[/] "
+            "(Leak incidents fetched at a single collector may not capture "
+            "the transit hop; try a wider fetch.)"
+        )
+        return
+
+    # ----- Headline stats -----
+    ttf = timeline.time_to_full_us
+    ttf_str = f"{ttf / 1_000_000:.0f}s" if ttf is not None else "—"
+    console.print(
+        f"  [green]▸[/] reached [bold]{timeline.reached_count}[/]/"
+        f"{timeline.total_peers_in_window} observable peers "
+        f"[bold green]({timeline.spread_pct:.0f}%)[/]\n"
+        f"  [green]▸[/] full spread in [bold]{ttf_str}[/] from onset\n"
+        f"  [green]▸[/] carried by [bold]{timeline.distinct_paths}[/] distinct AS path(s)"
+    )
+    console.print()
+
+    # ----- Propagation curve -----
+    _render_propagation_curve(timeline)
+
+    # ----- Earliest vantage points -----
+    table = Table(
+        title=f"[bold]First {min(n_peers, timeline.reached_count)} vantage points[/]",
+        border_style="dim",
+        header_style="bold",
+        expand=False,
+    )
+    table.add_column("offset", justify="right", style="cyan")
+    table.add_column("peer AS", style="white")
+    for obs in timeline.peers_reached[:n_peers]:
+        off = max(0, obs.offset_from_onset_us) / 1_000_000
+        table.add_row(f"+{off:.1f}s", _as_with_name(obs.peer_as))
+    console.print(table)
+    console.print(
+        "[dim]Snapshot view of the same incident: "
+        f"[/][cyan]netpulse demo --incident {incident_id}[/]"
     )
 
 

@@ -9,6 +9,22 @@ deployment has soaked, an initial 1.0 will lock the schema.
 ## [unreleased]
 
 ### Added
+- **`netpulse explain <incident>`** — forensic propagation
+  reconstruction. Where `demo` shows a detection snapshot, `explain`
+  reconstructs *how* the anomaly spread: how many independent
+  RIS/RouteViews peers observed it, a cumulative spread-over-time
+  curve, and how many distinct AS paths carried it. Hijacks trace by
+  origin, leaks by transit hop (the leaking AS mid-path). New
+  `src/netpulse/forensics.py` with a pure, unit-tested assembler
+  (`build_timeline`) + a store-driven `reconstruct_propagation`; 8
+  new tests. The 2008 YouTube hijack reconstructs as 11/11 vantage
+  points reached in 32 s via 21 paths. Rendered GIF at
+  `docs/img/explain.gif`.
+- **`ARCHITECTURE.md`** — system-design doc with a Mermaid pipeline
+  diagram, a layer-responsibility table, and the rationale behind the
+  five non-obvious design decisions (DuckDB substrate, pure-function
+  detectors, three leak detectors, two latency numbers, TP/FN/GAP
+  corpus methodology). Linked from the README.
 - **`OriginDeaggregationDetector`** — new detector that fires when a
   single origin AS emits a burst of more-specific (/23+) prefixes
   in the observation window. Catches the Telekom-Malaysia-2015 shape
