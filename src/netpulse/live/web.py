@@ -12,6 +12,7 @@ thread and these handlers). Endpoints:
 # ruff: noqa: E501
 from __future__ import annotations
 
+import re
 from dataclasses import asdict
 from datetime import UTC, datetime
 from typing import cast
@@ -44,32 +45,42 @@ def build_live_app(feed: DetectionFeed) -> FastAPI:
     return app
 
 
-def _humanize(detector: str, entity: str) -> tuple[str, str]:
-    """Translate a detector + entity into a plain-language (title, explanation)."""
+def _humanize(detector: str, entity: str, summary: str) -> tuple[str, str]:
+    """Translate a detection into a plain-language (title, explanation).
+
+    Pulls the real numbers out of the detector's raw summary so each row
+    reads distinctly instead of identically.
+    """
     if detector == "origin_deaggregation":
-        return (
-            "Route deaggregation burst",
-            f"{entity} suddenly announced a large batch of narrow, more-specific routes. "
-            "Usually a misconfiguration — but it's also how some hijacks begin.",
-        )
+        m = re.search(r"announced (\d+) distinct prefixes.*?\((\d+)%\)", summary)
+        if m:
+            count, pct = m.group(1), m.group(2)
+            return (
+                f"{entity} flooded the table with {count} narrow routes",
+                f"All at once, {pct}% of them more-specific slices — usually a "
+                "misconfiguration, occasionally the opening move of a hijack.",
+            )
+        return ("Route deaggregation burst", f"{entity} announced an unusual batch of narrow routes.")
     if detector == "moas":
+        m = re.search(r"\[([\d, ]+)\]", summary)
+        who = f" ({m.group(1).count(',') + 1} networks)" if m else ""
         return (
-            "Conflicting route origin",
-            f"{entity} is being announced by several networks at once — a classic hijack "
-            "signature (though it can also be legitimate multi-homing).",
+            f"{entity} is claimed by multiple networks{who}",
+            "The same addresses announced from several origins at once — a classic "
+            "hijack signature (though it can also be legitimate multi-homing).",
         )
     if detector == "subprefix_hijack":
         return (
-            "Possible sub-prefix hijack",
-            f"A more-specific slice of {entity} appeared from a network not authorized to "
-            "announce it — the exact pattern behind the 2008 YouTube outage.",
+            f"Possible hijack of {entity}",
+            "A more-specific slice appeared from a network not authorized to announce "
+            "it — the exact pattern behind the 2008 YouTube outage.",
         )
-    return (detector.replace("_", " ").title(), entity)
+    return (detector.replace("_", " ").title(), summary)
 
 
 def _render_page(feed: DetectionFeed) -> str:
     s = feed.stats()
-    dets = feed.recent(40)
+    dets = feed.recent(20)
     live = bool(s["connected"])
     status_pill = (
         '<span class="pill on"><span class="dot"></span>live</span>'
@@ -82,13 +93,13 @@ def _render_page(feed: DetectionFeed) -> str:
     cards = []
     for d in dets:
         when = datetime.fromtimestamp(d.ts_us / 1_000_000, tz=UTC).strftime("%H:%M:%S")
-        title, why = _humanize(d.detector, _esc(d.entity))
+        title, why = _humanize(d.detector, d.entity, d.summary)
         cards.append(
             f'<div class="ev">'
             f'<div class="ev-top"><span class="sev sev-{d.severity}">{d.severity}</span>'
-            f'<span class="ev-title">{title}</span>'
+            f'<span class="ev-title">{_esc(title)}</span>'
             f'<span class="ev-time">{when} UTC</span></div>'
-            f'<div class="ev-why">{why}</div>'
+            f'<div class="ev-why">{_esc(why)}</div>'
             f'<div class="ev-raw">{_esc(d.summary)} <code>{d.detector}</code></div>'
             f"</div>"
         )

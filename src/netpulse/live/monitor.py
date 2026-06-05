@@ -79,7 +79,13 @@ def run_monitor(
     max_backoff_s: float = 30.0,
 ) -> None:
     """Run the detect loop forever (until ``stop`` is set), reconnecting as needed."""
-    detectors: list[object] = [MOASDetector(), OriginDeaggregationDetector()]
+    # On the live global feed, routine heavy-deaggregators (legit ISPs)
+    # announce a few hundred more-specifics constantly. Raise the bar so
+    # the feed shows genuinely notable bursts, not everyday traffic.
+    detectors: list[object] = [
+        MOASDetector(),
+        OriginDeaggregationDetector(min_distinct_prefixes=500),
+    ]
     if baseline is not None:
         detectors.append(SubPrefixHijackDetector(baseline))
 
