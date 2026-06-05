@@ -1,0 +1,36 @@
+# Keeps the free-tier Render deployment warm so the public "Live" link
+# loads instantly instead of cold-starting (~30-50s) after idle.
+#
+# Render idles a free web service after ~15 min with no traffic. This
+# pings /healthz every ~10 min so it never gets there. /healthz is a
+# featherweight endpoint (no feed access).
+#
+# Best-effort: GitHub's scheduled runs can be delayed under load, so this
+# keeps the instance warm the large majority of the time but isn't a
+# hard guarantee. For punctual 24/7 warmth, add a 5-min UptimeRobot
+# monitor or upgrade Render to an always-on plan.
+name: keepalive
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+permissions: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping live monitor (wake / keep warm)
+        run: |
+          url="https://netpulse-live.onrender.com/healthz"
+          for i in 1 2 3 4; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 90 "$url" || echo 000)
+            echo "attempt $i -> HTTP $code"
+            [ "$code" = "200" ] && echo "warm." && exit 0
+            sleep 20
+          done
+          # Don't fail the job on a miss — this is a warmer, not a health
+          # alert, and a red keepalive run would just clutter the repo.
+          echo "no 200 yet (likely mid-cold-start); will retry next schedule."
