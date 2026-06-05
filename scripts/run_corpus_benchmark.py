@@ -77,7 +77,12 @@ def score_subprefix_incident(inc: Incident) -> IncidentResult:
     on_target = 0
     other = 0
     for a in alerts:
-        if inc.prefix is not None and a.entity == inc.prefix or inc.prefix is None and a.detector == "subprefix_hijack":
+        if (
+            inc.prefix is not None
+            and a.entity == inc.prefix
+            or inc.prefix is None
+            and a.detector == "subprefix_hijack"
+        ):
             on_target += 1
         else:
             other += 1
@@ -116,9 +121,7 @@ def score_routeleak_incident(inc: Incident) -> IncidentResult:
         asns = parse_as_path(str(asp))
         if asns:
             paths.append(
-                ObservedPath(
-                    prefix=str(p), asns=asns, peer_as=int(peer), timestamp_us=int(ts)
-                )
+                ObservedPath(prefix=str(p), asns=asns, peer_as=int(peer), timestamp_us=int(ts))
             )
 
     # Try the pair-direction valley-free detector first. If it abstains,
@@ -131,14 +134,8 @@ def score_routeleak_incident(inc: Incident) -> IncidentResult:
         return sum(
             1
             for a in alerts
-            if (
-                inc.attacker_asn is None
-                or inc.attacker_asn in a.evidence.get("path", [])
-            )
-            and (
-                inc.victim_asn is None
-                or inc.victim_asn in a.evidence.get("path", [])
-            )
+            if (inc.attacker_asn is None or inc.attacker_asn in a.evidence.get("path", []))
+            and (inc.victim_asn is None or inc.victim_asn in a.evidence.get("path", []))
         )
 
     n_valley = on_target(valley_alerts)
@@ -220,8 +217,10 @@ def main() -> None:
     n_gap = sum(1 for r in results if r.outcome == "GAP")
     print()
     print(f"TPR (TP / (TP + FN + GAP))     = {n_tp}/{n_total} = {n_tp / n_total:.2%}")
-    print(f"detector-coverage rate         = {(n_tp + n_gap)}/{n_total} = "
-          f"{(n_tp + n_gap) / n_total:.2%}  (TP + documented GAPs)")
+    print(
+        f"detector-coverage rate         = {(n_tp + n_gap)}/{n_total} = "
+        f"{(n_tp + n_gap) / n_total:.2%}  (TP + documented GAPs)"
+    )
     print(f"strict failure rate (FN only)  = {n_fn}/{n_total} = {n_fn / n_total:.2%}")
 
     out: dict[str, Any] = {

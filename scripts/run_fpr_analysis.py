@@ -29,16 +29,31 @@ RIB_BASELINE_DUCKDB = REPO_ROOT / "data" / "baselines" / "yt_rib_filtered.duckdb
 
 # (label, path, window_start_us, window_end_us)
 WINDOWS: list[tuple[str, Path, int, int]] = [
-    ("2008-02-23 00:00 UTC (background)", FPR_DIR / "fpr_2008_02_23_00.duckdb",
-     1_203_724_800_000_000, 1_203_724_800_000_000 + 3_600_000_000),
-    ("2008-02-24 06:00 UTC (background)", FPR_DIR / "fpr_2008_02_24_06.duckdb",
-     1_203_832_800_000_000, 1_203_832_800_000_000 + 3_600_000_000),
-    ("2008-02-24 12:00 UTC (background)", FPR_DIR / "fpr_2008_02_24_12.duckdb",
-     1_203_854_400_000_000, 1_203_854_400_000_000 + 3_600_000_000),
-    ("2008-02-24 18:00 UTC (HIJACK)", YOUTUBE_DUCKDB,
-     1_203_876_000_000_000, 1_203_879_600_000_000),
-    ("2008-02-25 00:00 UTC (background)", FPR_DIR / "fpr_2008_02_25_00.duckdb",
-     1_203_897_600_000_000, 1_203_897_600_000_000 + 3_600_000_000),
+    (
+        "2008-02-23 00:00 UTC (background)",
+        FPR_DIR / "fpr_2008_02_23_00.duckdb",
+        1_203_724_800_000_000,
+        1_203_724_800_000_000 + 3_600_000_000,
+    ),
+    (
+        "2008-02-24 06:00 UTC (background)",
+        FPR_DIR / "fpr_2008_02_24_06.duckdb",
+        1_203_832_800_000_000,
+        1_203_832_800_000_000 + 3_600_000_000,
+    ),
+    (
+        "2008-02-24 12:00 UTC (background)",
+        FPR_DIR / "fpr_2008_02_24_12.duckdb",
+        1_203_854_400_000_000,
+        1_203_854_400_000_000 + 3_600_000_000,
+    ),
+    ("2008-02-24 18:00 UTC (HIJACK)", YOUTUBE_DUCKDB, 1_203_876_000_000_000, 1_203_879_600_000_000),
+    (
+        "2008-02-25 00:00 UTC (background)",
+        FPR_DIR / "fpr_2008_02_25_00.duckdb",
+        1_203_897_600_000_000,
+        1_203_897_600_000_000 + 3_600_000_000,
+    ),
 ]
 
 
@@ -52,8 +67,9 @@ class HourReport:
     subprefix_alerts: int
 
 
-def analyze_hour(label: str, path: Path, start_us: int, end_us: int,
-                 baseline: BGPBaseline) -> HourReport | None:
+def analyze_hour(
+    label: str, path: Path, start_us: int, end_us: int, baseline: BGPBaseline
+) -> HourReport | None:
     if not path.exists():
         print(f"  skip {label}: {path} not present")
         return None
@@ -81,7 +97,9 @@ def main() -> None:
         print(f"# baseline: real RIB pull, {len(baseline.origins)} prefixes")
     else:
         baseline = BGPBaseline.build({"208.65.152.0/22": {36561}})
-        print("# baseline: 1-row hand-curated (RIB pull missing; run scripts/extract_demo_fixture.py)")
+        print(
+            "# baseline: 1-row hand-curated (RIB pull missing; run scripts/extract_demo_fixture.py)"
+        )
 
     print(f"{'window':<40} {'ann':>8} {'wd':>6} {'pfxs':>7} {'moas':>5} {'sub':>4}")
     print("-" * 75)
@@ -105,12 +123,16 @@ def main() -> None:
         background = [r for r in reports if "HIJACK" not in r.label]
         bg_sub = sum(r.subprefix_alerts for r in background)
         bg_pfxs = sum(r.distinct_prefixes for r in background)
-        print(f"{'TOTAL':<40} {sum(r.announces for r in reports):>8} "
-              f"{sum(r.withdraws for r in reports):>6} {total_pfxs:>7} "
-              f"{total_moas:>5} {total_sub:>4}")
+        print(
+            f"{'TOTAL':<40} {sum(r.announces for r in reports):>8} "
+            f"{sum(r.withdraws for r in reports):>6} {total_pfxs:>7} "
+            f"{total_moas:>5} {total_sub:>4}"
+        )
         print()
-        print(f"sub-prefix FPR: {bg_sub} alerts on {bg_pfxs} prefixes "
-              f"across {len(background)} background hours")
+        print(
+            f"sub-prefix FPR: {bg_sub} alerts on {bg_pfxs} prefixes "
+            f"across {len(background)} background hours"
+        )
         print(f"MOAS noise floor: {total_moas / len(reports):.1f} alerts/hour mean")
 
 

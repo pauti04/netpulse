@@ -39,10 +39,7 @@ def main() -> None:
     order = {"TP": 0, "GAP": 1, "FN": 2}
     results.sort(key=lambda r: (order.get(r["outcome"], 9), r["incident_id"]))
 
-    labels = [
-        f"{r['incident_id']}\n({r['shape']})  ·  {r['expected_detector']}"
-        for r in results
-    ]
+    labels = [f"{r['incident_id']}\n({r['shape']})  ·  {r['expected_detector']}" for r in results]
     on_target = [r["on_target_alerts"] for r in results]
     other = [r["other_alerts"] for r in results]
     outcomes = [r["outcome"] for r in results]
@@ -56,18 +53,33 @@ def main() -> None:
     display_on = [max(v, 0) for v in on_target]
     display_other = [max(v, 0) for v in other]
 
-    ax.barh(ys, display_on, color=on_colors, edgecolor="white",
-            label="on-target alerts (right shape, right entity)")
-    ax.barh(ys, display_other, left=display_on, color="#bdbdbd",
-            edgecolor="white",
-            label="other alerts in the same window")
+    ax.barh(
+        ys,
+        display_on,
+        color=on_colors,
+        edgecolor="white",
+        label="on-target alerts (right shape, right entity)",
+    )
+    ax.barh(
+        ys,
+        display_other,
+        left=display_on,
+        color="#bdbdbd",
+        edgecolor="white",
+        label="other alerts in the same window",
+    )
 
     # Annotations: outcome + numeric breakdown
     for y, r in enumerate(results):
         total = r["on_target_alerts"] + r["other_alerts"]
-        annotation = f"  {r['outcome']}  ({r['on_target_alerts']} on-target, {r['other_alerts']} other)"
+        annotation = (
+            f"  {r['outcome']}  ({r['on_target_alerts']} on-target, {r['other_alerts']} other)"
+        )
         ax.annotate(
-            annotation, xy=(max(total, 1), y), va="center", ha="left",
+            annotation,
+            xy=(max(total, 1), y),
+            va="center",
+            ha="left",
             fontsize=9,
             color={"TP": "#2e8b57", "FN": "#c0392b", "GAP": "#b8860b"}.get(r["outcome"], "#444"),
             fontweight="bold",
@@ -90,8 +102,7 @@ def main() -> None:
         Patch(facecolor="#c0392b", label="FN — detector should fire but did not"),
         Patch(facecolor="#bdbdbd", label="other alerts in the same window"),
     ]
-    ax.legend(handles=legend_handles, loc="lower right", framealpha=0.95,
-              fontsize=9)
+    ax.legend(handles=legend_handles, loc="lower right", framealpha=0.95, fontsize=9)
     ax.grid(axis="x", alpha=0.3)
     fig.tight_layout()
     fig.savefig(OUT_PATH)

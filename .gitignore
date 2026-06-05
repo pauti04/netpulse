@@ -59,3 +59,7 @@ data/*.duckdb.wal
 .env
 .env.local
 
+
+# ML raw windows (large; rebuild via scripts/build_ml_dataset.py + docs/ml/README.md)
+data/ml/*_unfiltered.duckdb
+data/ml/legit_*.duckdb

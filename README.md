@@ -166,6 +166,31 @@ the attacker); leaks trace by transit (paths traversing the leaking AS).
 The math lives in [`forensics.py`](src/netpulse/forensics.py) behind a
 pure, unit-tested assembler.
 
+### Unsupervised ML: detect hijacks without a baseline
+
+The rule-based detectors need a RIB baseline of legitimate origins. Can
+the hijacks be surfaced from **observable features alone, with no labels
+and no baseline**? An Isolation Forest over 8 scale-invariant
+per-prefix features, evaluated as a ranking task on **37,269 real BGP
+observations** from two incident windows:
+
+| Incident | Observations | Base rate | Isolation Forest AP | Lift | Rule baseline AP |
+|----------|-------------:|----------:|--------------------:|-----:|-----------------:|
+| Indosat 2014    | 33,034 | 11.0% | **0.34** | **3.1×** | 0.18 |
+| Rostelecom 2017 |  4,235 |  3.1% | **0.47** | **15.3×** | 0.04 |
+
+The unsupervised scorer surfaces hijacks 3–15× better than random and
+beats the single-rule baseline — with no labels. Notably, a *supervised*
+"which AS is the attacker" classifier hits AUC ≈ 1.0 by learning origin
+volume (the culprit is just the biggest announcer) — **label leakage**,
+not skill; the unsupervised ranking framing avoids it and uses the right
+imbalanced-data metric (average precision + lift, not accuracy).
+[Methodology + honest caveats →](docs/ml/README.md)
+
+```sh
+uv sync --extra ml && uv run python scripts/ml_anomaly_eval.py
+```
+
 For a live tap of the global routing table:
 
 ```sh

@@ -83,9 +83,7 @@ def compare(netpulse_path: Path, artemis_paths: list[Path]) -> list[HeadToHeadRo
     for inc_id in incident_ids:
         np_row = np_rows.get(inc_id)
         artemis_rows_for_inc = ar_rows.get(inc_id, [])
-        artemis_fired, artemis_alerts, artemis_types = _summarize_artemis(
-            artemis_rows_for_inc
-        )
+        artemis_fired, artemis_alerts, artemis_types = _summarize_artemis(artemis_rows_for_inc)
 
         if np_row is None:
             out.append(
@@ -126,9 +124,7 @@ def main() -> None:
     ap.add_argument(
         "--netpulse",
         type=Path,
-        default=Path(__file__).resolve().parent.parent
-        / "docs"
-        / "corpus_benchmark.json",
+        default=Path(__file__).resolve().parent.parent / "docs" / "corpus_benchmark.json",
         help="Path to NetPulse corpus benchmark JSON.",
     )
     ap.add_argument(

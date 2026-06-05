@@ -52,9 +52,7 @@ def extract(src_path: Path, dst_path: Path) -> int:
         """,
         [WINDOW_START_US, WINDOW_END_US],
     ).fetchall()
-    dst.executemany(
-        "INSERT INTO bgp_records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", rows
-    )
+    dst.executemany("INSERT INTO bgp_records VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", rows)
     dst.execute("CHECKPOINT")
     dst.close()
     src.close()

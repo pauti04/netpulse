@@ -84,9 +84,7 @@ def _bgp_signal() -> tuple[int, int, int]:
 
     alerts = RouteLeakDetector(rels=rels).score_paths(paths)
     mainone_alerts = [
-        a
-        for a in alerts
-        if ATTACKER_ASN in a.evidence["path"] and VICTIM_ASN in a.evidence["path"]
+        a for a in alerts if ATTACKER_ASN in a.evidence["path"] and VICTIM_ASN in a.evidence["path"]
     ]
     return len(paths), len(alerts), mainone_alerts
 

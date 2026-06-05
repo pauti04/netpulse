@@ -1,0 +1,30 @@
+{
+  "results": {
+    "indosat_2014": {
+      "n": 33034,
+      "n_positive": 3621,
+      "base_rate": 0.1096,
+      "isolation_forest_ap": 0.3372,
+      "isolation_forest_lift": 3.08,
+      "rule_conflict_ap": 0.1775
+    },
+    "rostelecom_2017": {
+      "n": 4235,
+      "n_positive": 130,
+      "base_rate": 0.0307,
+      "isolation_forest_ap": 0.4694,
+      "isolation_forest_lift": 15.29,
+      "rule_conflict_ap": 0.0347
+    }
+  },
+  "features": [
+    "prefix_len",
+    "is_24",
+    "moas_degree",
+    "sub_conflict",
+    "n_peers",
+    "n_paths",
+    "mean_path_len",
+    "min_path_len"
+  ]
+}

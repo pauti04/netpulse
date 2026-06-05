@@ -39,10 +39,21 @@ def main() -> None:
     moas_colors = ["#cc8888" if h else "#cccccc" for h in is_hijack]
     sub_colors = ["#cc3333" if h else "#888888" for h in is_hijack]
 
-    ax.bar(x, moas, color=moas_colors, edgecolor="white",
-           label="MOAS alerts (multi-origin prefixes; not all are hijacks)")
-    ax.bar(x, sub, bottom=moas, color=sub_colors, edgecolor="white",
-           label="sub-prefix hijack alerts (true positives)")
+    ax.bar(
+        x,
+        moas,
+        color=moas_colors,
+        edgecolor="white",
+        label="MOAS alerts (multi-origin prefixes; not all are hijacks)",
+    )
+    ax.bar(
+        x,
+        sub,
+        bottom=moas,
+        color=sub_colors,
+        edgecolor="white",
+        label="sub-prefix hijack alerts (true positives)",
+    )
 
     for xi, m, s in zip(x, moas, sub, strict=True):
         if s > 0:

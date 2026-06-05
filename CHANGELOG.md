@@ -9,6 +9,18 @@ deployment has soaked, an initial 1.0 will lock the schema.
 ## [unreleased]
 
 ### Added
+- **`netpulse.ml` — unsupervised anomaly-detection layer** (optional
+  `[ml]` extra). An Isolation Forest over 8 scale-invariant per-prefix
+  features surfaces hijacked announcements with **no labels and no
+  baseline**, evaluated as a ranking task on 37,269 real BGP
+  observations from two unfiltered incident windows: average precision
+  0.34 / 0.47 (3.1× / 15.3× lift over random), beating a single-rule
+  baseline. Pure, unit-tested feature extraction; `scikit-learn` import
+  is lazy and gated behind the extra. A supervised "which AS is the
+  attacker" framing was deliberately *not* shipped — it hits AUC ≈ 1.0
+  via origin-volume label leakage, documented in `docs/ml/README.md`.
+  New: `src/netpulse/ml/`, `scripts/build_ml_dataset.py`,
+  `scripts/ml_anomaly_eval.py`, committed feature parquet, 9 tests.
 - **`netpulse explain <incident>`** — forensic propagation
   reconstruction. Where `demo` shows a detection snapshot, `explain`
   reconstructs *how* the anomaly spread: how many independent
