@@ -31,9 +31,9 @@ scrape_configs:
     metrics_path: /metrics
     static_configs:
       - targets:
-          - netpulse-pauti.fly.dev:443
+          - your-netpulse-host:443   # e.g. your Render/Fly deployment
         labels:
-          deployment: fly
+          deployment: prod
     scheme: https
 ```
 

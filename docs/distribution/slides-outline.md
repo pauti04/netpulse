@@ -82,7 +82,8 @@ expanded — the writeup at `docs/paper.md` is the long form.
 
 ## 10. Production surface (show curl + json)
 
-- FastAPI on Fly.io: https://netpulse-pauti.fly.dev/health
+- FastAPI + a real-time `netpulse live` monitor, deployable to any
+  Docker host (Render `render.yaml` committed).
 - `POST /detect/bgp`, `GET /alerts`, `GET /metrics` (Prometheus
   text-format).
 - Cross-collector aggregation: `--in` repeatable on `detect bgp`,
@@ -108,7 +109,6 @@ expanded — the writeup at `docs/paper.md` is the long form.
 ## Closing slide
 
 - GitHub: github.com/pauti04/netpulse
-- Live: netpulse-pauti.fly.dev
 - Paper: docs/paper.md
 - MIT · Python 3.11 · DuckDB · libBGPStream · RIPE Atlas
 

@@ -240,8 +240,8 @@ breaking changes will bump 0.2 / 1.0 as the corpus grows toward N=10.
   `netpulse stream --history <path>` and `netpulse serve --history
   <path>` enable the new `GET /alerts` endpoint with time-range,
   detector, and severity filters.
-- **Public deployment.** Dockerfile + fly.toml ship the FastAPI surface;
-  the project is live at <https://netpulse-pauti.fly.dev/>.
+- **Public deployment.** Dockerfile ships the FastAPI surface; deploys
+  to any Docker host (see `render.yaml` / `fly.toml`).
 - **Customer-cone-aware route-leak detector** (`customer_cone_leak`).
   Walks each path against transitive customer cones derived by BFS
   over the CAIDA p2c edges; fires on any path that is not
