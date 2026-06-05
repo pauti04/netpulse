@@ -193,6 +193,11 @@ Each stage is a thin module that talks to the next through DuckDB rather
 than in-memory queues, so any stage can be replayed independently —
 which is what makes the historical benchmark reproducible.
 
+**[`ARCHITECTURE.md`](ARCHITECTURE.md)** has the full system diagram and
+the design rationale: why DuckDB, why detectors are pure functions, why
+there are three leak detectors instead of one, and how the TP/FN/GAP
+corpus methodology works.
+
 ## Headline numbers
 
 Seven labeled historical incidents of distinct shape, scored on real
