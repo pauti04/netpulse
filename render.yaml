@@ -20,7 +20,9 @@ services:
     plan: free
     runtime: docker
     dockerfilePath: ./Dockerfile
-    dockerCommand: netpulse live --host 0.0.0.0 --port $PORT
+    # Smaller window keeps memory comfortable on the free 512 MB instance
+    # (~60s of the live feed ≈ 100K updates instead of 200K+).
+    dockerCommand: netpulse live --host 0.0.0.0 --port $PORT --window 60s --interval 15s
     healthCheckPath: /healthz
     autoDeploy: true
     envVars:
