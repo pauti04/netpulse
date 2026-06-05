@@ -9,9 +9,9 @@ We describe NetPulse, an open-source detector for BGP anomalies
 (sub-prefix hijacks, multi-origin events, route leaks, RPKI-invalid
 announcements) packaged with a public, reproducible benchmark on labeled
 historical incidents and on a controlled false-positive survey of
-neighboring time windows. Across a 5-incident corpus assembled from
+neighboring time windows. Across a 7-incident corpus assembled from
 RIPE RIS archive data, NetPulse's detectors reach the incident in
-**5/5** cases — every labeled hijack and leak fires, including the
+**7/7** cases — every labeled hijack and leak fires, including the
 2017-08 Google → Verizon → NTT case that the standard pair-direction
 valley-free check (RFC 7908 §3.1 applied to CAIDA serial-2 data)
 abstains on. The case is caught by a **customer-cone-aware** variant
@@ -62,10 +62,14 @@ ingest -> storage -> features -> detectors -> alerts -> (publishers | api | benc
   detectors can see evidence from multiple collectors at zero copy.
 - **Features.** Stateless extraction over a half-open `[start_us, end_us)`
   window: per-prefix origin sets, announce/withdraw counts.
-- **Detectors.** Seven total today:
+- **Detectors.** Eight total today:
   - `moas`: any multi-origin prefix in the window.
   - `subprefix_hijack`: a more-specific (or exact prefix) announced from
     an origin not authorized for the covering supernet.
+  - `origin_deaggregation`: a single origin AS emitting a burst of
+    more-specific (/23+) prefixes — the mass-deaggregation shape
+    (Telekom-Malaysia-2015) where every announce has a *legitimate*
+    origin, so neither `moas` nor `subprefix_hijack` fires.
   - `withdraw_spike`: high withdraw-to-announce ratio in the window.
   - `route_leak`: bilateral valley-free violations on observed
     AS-paths (RFC 7908 Type-1) classified against CAIDA serial-2
@@ -95,17 +99,27 @@ ingest -> storage -> features -> detectors -> alerts -> (publishers | api | benc
 
 ### 3.1 Incident corpus
 
-Four incidents are labeled today, populated only from primary sources
-(RIPE NCC case studies, Cloudflare/BGPmon writeups, ISC reports).
-Hard rule in the repository: no AI-generated or extrapolated incident
-data is ever committed. Each fixture cites its source URL.
+Seven incidents are labeled today, populated only from primary sources
+(RIPE NCC case studies, Cloudflare/BGPmon writeups, ISC reports, RIPE
+Stat routing history). Hard rule in the repository: no AI-generated or
+extrapolated incident data is ever committed. Each fixture cites its
+source URL.
 
 | Incident                          | Date          | Shape                  | Source                            |
 | --------------------------------- | ------------- | ---------------------- | --------------------------------- |
 | YouTube /24 sub-prefix hijack     | 2008-02-24    | sub-prefix hijack      | RIPE NCC RIS case study           |
+| Rostelecom financial networks     | 2017-04-26    | sub-prefix hijack      | Dyn / RIPE Stat routing history   |
+| Indosat / AS4761 MOAS             | 2014-04-02    | sub-prefix hijack (×2) | BGPmon writeup                    |
 | MyEtherWallet                     | 2018-04-24    | sub-prefix hijack      | Cloudflare BGP-leaks blog         |
 | MainOne → Google                  | 2018-11-12    | route leak (RFC 7908)  | BGPmon / ThousandEyes writeups    |
 | Google → Verizon → NTT            | 2017-08-25    | route leak (RFC 7908)  | NTT / ISC operator reports        |
+| Vodafone Idea AS55410             | 2024-09-30    | route leak (RFC 7908)  | RIPE Stat routing history         |
+
+The Indosat case is the only fixture that exercises *both* branches of
+the sub-prefix detector in one incident (3 exact-prefix Case-1 alerts +
+16 more-specific Case-2 alerts). The Vodafone Idea leak is a
+tier-1-to-tier-1 deaggregation that also trips the
+`origin_deaggregation` detector.
 
 The 2024-06-27 Cloudflare 1.1.1.1 incident is documented in this
 benchmark but **not** labeled, because cross-collector inspection
@@ -130,7 +144,7 @@ Current corpus result (`docs/corpus_benchmark.json`,
 `docs/img/corpus_matrix.svg`):
 
 ```
-N=5    TP=5    FN=0    GAP=0
+N=7    TP=7    FN=0    GAP=0
 ```
 
 The 2017-08 Google → Verizon → NTT leak — previously reported as
@@ -330,16 +344,24 @@ overclaiming.
 
 ## 6. Production surface
 
-The repository deploys to Fly.io as a FastAPI service
-(`netpulse-pauti.fly.dev`) that exposes:
+The repository ships a FastAPI service (Dockerfile + a `render.yaml`
+Blueprint for one-click free-tier deploy, plus a `fly.toml`) that
+exposes:
 
 - `POST /detect/bgp` — run all detectors over a configurable window of
   the bound store, return alerts as JSON.
 - `GET /alerts` — query persisted alert history (DuckDB-backed) by
   detector, severity, and time window.
 - `GET /health` — store path, baseline prefix count, version.
+- `GET /ready` — readiness gate on a DuckDB sanity query (503 if the
+  bound store is unreadable), for orchestrator liveness/readiness probes.
 - `GET /metrics` — Prometheus text-format counters (requests by endpoint,
-  alerts by detector) and gauges (baseline size).
+  alerts by detector), gauges (baseline size), and per-endpoint
+  request-duration histograms.
+
+Every response carries an `x-request-id` (assigned by middleware and
+echoed into structured JSON logs) so a single detection call can be
+traced from access log to alert.
 
 The production surface is part of the contribution because it forces
 the detection logic to be operable: a benchmark that only runs as a
@@ -426,6 +448,8 @@ All numbers in this paper come from one of these commands:
 
 ```sh
 uv sync && uv run netpulse demo
+uv run netpulse demo --incident all      # all 7 corpus incidents
+uv run netpulse explain                  # forensic propagation reconstruction
 
 uv run netpulse ingest bgp --collector rrc00 \
     --start 2008-02-24T18:00:00 --duration 1h \
