@@ -1270,6 +1270,7 @@ dependencies = [
     { name = "ripe-atlas-sagan" },
     { name = "typer" },
     { name = "uvicorn" },
+    { name = "websocket-client" },
 ]
 
 [package.optional-dependencies]
@@ -1315,6 +1316,7 @@ requires-dist = [
     { name = "streamlit", marker = "extra == 'dashboard'", specifier = ">=1.34" },
     { name = "typer", specifier = ">=0.12" },
     { name = "uvicorn", specifier = ">=0.30" },
+    { name = "websocket-client", specifier = ">=1.7" },
 ]
 provides-extras = ["bgp", "viz", "dashboard", "ml"]
 

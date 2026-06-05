@@ -24,6 +24,23 @@ color-coded verdict — in about a second. A hosted HTTP API
 (`POST /detect/bgp`) ships in the repo and deploys to any Docker host;
 see [Deploy](#deploy).
 
+### Live monitor
+
+NetPulse also runs as a **real-time service**: `netpulse live` taps the
+**RIPE RIS Live global BGP feed** (~1,800 updates/sec), runs the
+detectors on a rolling window with auto-reconnect, and serves a
+self-refreshing status page + JSON feed of the anomalies it's flagging
+right now.
+
+```sh
+uv run netpulse live          # → http://localhost:8000  (status page + /live/recent)
+```
+
+In a 70-second sample against the live feed it ingested **149,246 BGP
+updates** and surfaced **11 candidate routing anomalies** (origin
+deaggregation bursts) with zero reconnects. It's a single always-on
+process — deploy it as one web service (see [Deploy](#deploy)).
+
 **Real performance numbers** (benchmark methodology in [`BENCHMARK.md`](BENCHMARK.md#performance)):
 RPKI validate against 859k VRPs ≈ **43 µs / call** (~23k / sec, after a
 500× speedup from longest-prefix-match indexing). Route-leak detector

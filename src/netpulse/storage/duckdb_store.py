@@ -27,9 +27,7 @@ class BGPStore:
         """
         self.path = Path(path)
         self.read_only = read_only
-        self._conn: duckdb.DuckDBPyConnection = duckdb.connect(
-            str(self.path), read_only=read_only
-        )
+        self._conn: duckdb.DuckDBPyConnection = duckdb.connect(str(self.path), read_only=read_only)
         if not read_only:
             self._conn.execute(CREATE_BGP_RECORDS_TABLE)
 

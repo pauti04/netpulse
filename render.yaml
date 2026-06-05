@@ -1,31 +1,27 @@
-# Render Blueprint -- one-click free-tier deploy for NetPulse.
+# Render Blueprint — deploy NetPulse Live (the real-time BGP anomaly monitor).
 #
 # To deploy:
-#   1. Push this file (already on main).
-#   2. Open https://dashboard.render.com/blueprints
-#   3. Click "New Blueprint Instance" -> connect github.com/pauti04/netpulse
-#   4. Render reads this file, builds the Dockerfile, and exposes the
-#      FastAPI surface on a free .onrender.com subdomain in ~3 minutes.
+#   1. Open https://dashboard.render.com/blueprints
+#   2. "New Blueprint Instance" -> connect github.com/pauti04/netpulse
+#   3. Render builds the Dockerfile and serves the live monitor on a
+#      free .onrender.com subdomain in ~3 minutes.
 #
-# Free-tier caveats: the service spins down after 15 minutes of idle and
-# takes ~30 seconds to cold-start. /health and /ready respond after warmup.
+# The `netpulse live` process taps the RIPE RIS Live BGP feed and serves a
+# self-refreshing status page at / plus a JSON feed at /live/recent.
+#
+# Free-tier caveat: a free web service spins down after 15 min idle (so
+# monitoring pauses when nobody's watching, and cold-starts in ~30s). For
+# true always-on 24/7 monitoring, use Render's Starter plan or Fly.io with
+# a payment method — change `plan: free` below to `plan: starter`.
 
 services:
   - type: web
-    name: netpulse
+    name: netpulse-live
     plan: free
     runtime: docker
     dockerfilePath: ./Dockerfile
-    # Render assigns the port via $PORT; we override the Dockerfile CMD
-    # so `netpulse serve` listens on it instead of the baked-in 8000.
-    dockerCommand: >
-      netpulse serve
-      --store /app/data/fixtures/youtube_2008_demo.duckdb
-      --baseline /app/data/baselines/yt_rib_filtered.duckdb
-      --history /tmp/alerts.duckdb
-      --host 0.0.0.0
-      --port $PORT
-    healthCheckPath: /health
+    dockerCommand: netpulse live --host 0.0.0.0 --port $PORT
+    healthCheckPath: /healthz
     autoDeploy: true
     envVars:
       - key: PYTHONUNBUFFERED

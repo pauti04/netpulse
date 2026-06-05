@@ -2248,6 +2248,73 @@ def serve(
         uvicorn.run(api, host=host, port=port)
 
 
+@app.command("live")
+def live(
+    host: Annotated[str, typer.Option("--host", help="Bind address.")] = "0.0.0.0",  # noqa: S104
+    port: Annotated[int, typer.Option("--port", help="TCP port.")] = 8000,
+    window: Annotated[
+        str, typer.Option("--window", help="Rolling window of live updates kept in memory.")
+    ] = "2m",
+    interval: Annotated[
+        str, typer.Option("--interval", help="How often to evaluate detectors.")
+    ] = "15s",
+    baseline_path: Annotated[
+        Path | None,
+        typer.Option("--baseline", help="Optional sub-prefix baseline DuckDB."),
+    ] = None,
+    host_filter: Annotated[
+        str | None,
+        typer.Option("--collector", help="Limit to one RIS collector (e.g. 'rrc00.ripe.net')."),
+    ] = None,
+) -> None:
+    """Run the live product: tap RIS Live 24/7 + serve a public status page.
+
+    One process: a background thread streams the global BGP feed and runs
+    detectors with auto-reconnect; the main thread serves a self-refreshing
+    page at ``/`` and a JSON feed at ``/live/recent``. Deploy this as a
+    single always-on web service.
+    """
+    import threading
+
+    import uvicorn
+
+    from netpulse.detectors.baseline import BGPBaseline
+    from netpulse.live.feed import DetectionFeed
+    from netpulse.live.monitor import run_monitor
+    from netpulse.live.web import build_live_app
+    from netpulse.observability import configure_logging
+    from netpulse.storage.duckdb_store import BGPStore
+
+    configure_logging(json_mode=True)
+
+    baseline: BGPBaseline | None = None
+    if baseline_path is not None:
+        with BGPStore(baseline_path, read_only=True) as bs:
+            baseline = BGPBaseline.from_store(bs)
+
+    feed = DetectionFeed()
+    stop = threading.Event()
+    monitor_thread = threading.Thread(
+        target=run_monitor,
+        args=(feed,),
+        kwargs={
+            "baseline": baseline,
+            "window_us": _parse_duration_to_us(window),
+            "interval_us": _parse_duration_to_us(interval),
+            "host_filter": host_filter,
+            "stop": stop,
+        },
+        daemon=True,
+        name="netpulse-monitor",
+    )
+    monitor_thread.start()
+    console.log(f"NetPulse Live on http://{host}:{port}  (tapping RIS Live, window={window})")
+    try:
+        uvicorn.run(build_live_app(feed), host=host, port=port)
+    finally:
+        stop.set()
+
+
 @app.command("dashboard")
 def dashboard(
     history_path: Annotated[

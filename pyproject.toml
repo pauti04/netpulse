@@ -24,6 +24,7 @@ dependencies = [
     "uvicorn>=0.30",
     "typer>=0.12",
     "rich>=13.7",
+    "websocket-client>=1.7",
 ]
 
 [project.optional-dependencies]

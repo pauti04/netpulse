@@ -8,6 +8,19 @@ deployment has soaked, an initial 1.0 will lock the schema.
 
 ## [unreleased]
 
+### Added
+- **`netpulse live` — NetPulse runs as a real-time product.** A single
+  always-on process that taps the **RIPE RIS Live global BGP feed**
+  (~1,800 updates/sec), runs the detectors on a rolling in-memory
+  window with **auto-reconnect + exponential backoff**, and serves a
+  self-refreshing public status page (`/`) + JSON feed (`/live/recent`).
+  Verified against the live feed: ingested **149,246 updates in 70s**,
+  flagged **11 candidate anomalies** (origin-deaggregation bursts), 0
+  reconnects. New `src/netpulse/live/` (thread-safe `DetectionFeed`,
+  hardened monitor loop, web surface); MOAS is filtered to 3+ origins
+  so the feed shows suspicious events, not legitimate multi-homing.
+  Deployable as one web service (`render.yaml` updated). 6 new tests.
+
 ### Performance
 - **12× faster sub-prefix detector, 4× faster pipeline.** Memoized
   `ipaddress.ip_network` parsing (a bounded `lru_cache` in
