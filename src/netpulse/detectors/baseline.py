@@ -3,8 +3,30 @@ from __future__ import annotations
 import ipaddress
 from collections.abc import Iterable
 from dataclasses import dataclass, field
+from functools import lru_cache
 
 from netpulse.storage.duckdb_store import BGPStore
+
+_Network = ipaddress.IPv4Network | ipaddress.IPv6Network
+
+
+@lru_cache(maxsize=262_144)
+def _parse_network(prefix: str) -> tuple[_Network, str] | None:
+    """Parse ``prefix`` into ``(network, canonical_str)`` once, then memoize.
+
+    ``ipaddress.ip_network`` octet parsing dominated the sub-prefix
+    detector's CPU (~190 ms over a 32K-prefix window) because every
+    prefix was re-parsed twice per call — once for the exact-match
+    lookup and once for the supernet walk — and again on every run.
+    Caching collapses that to a single parse per distinct prefix string
+    for the process lifetime. Bounded LRU so a long-lived streaming
+    process can't grow it without limit.
+    """
+    try:
+        net = ipaddress.ip_network(prefix, strict=False)
+    except ValueError:
+        return None
+    return net, str(net)
 
 
 @dataclass(slots=True)
@@ -55,11 +77,10 @@ class BGPBaseline:
         return cls(origins=canonical, _v4=v4, _v6=v6)
 
     def origins_for(self, prefix: str) -> set[int]:
-        try:
-            key = str(ipaddress.ip_network(prefix, strict=False))
-        except ValueError:
+        parsed = _parse_network(prefix)
+        if parsed is None:
             return set()
-        return self.origins.get(key, set())
+        return self.origins.get(parsed[1], set())
 
     def covering_supernets(self, prefix: str) -> Iterable[tuple[str, set[int]]]:
         """Yield (supernet, origins) pairs for every baseline supernet of ``prefix``.
@@ -67,10 +88,10 @@ class BGPBaseline:
         Excludes the prefix itself. Yielded longest-prefix-first so the caller
         can stop at the most-specific match.
         """
-        try:
-            target = ipaddress.ip_network(prefix, strict=False)
-        except ValueError:
+        parsed = _parse_network(prefix)
+        if parsed is None:
             return
+        target = parsed[0]
 
         if isinstance(target, ipaddress.IPv4Network):
             for plen in sorted(self._v4, reverse=True):
