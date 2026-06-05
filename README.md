@@ -338,12 +338,34 @@ Reproduction commands and methodology: [BENCHMARK.md](BENCHMARK.md).
   hard rules (no fabricated incident data, no invented API shapes,
   no over-engineering).
 
+## Performance
+
+Profiled, optimized, and load-tested — full numbers + reproduction in
+**[`PERFORMANCE.md`](PERFORMANCE.md)**:
+
+- **Detection pipeline: 1.71M records/sec** on a real 131K-record RIS
+  window, after a **12× sub-prefix-detector speedup** (memoized prefix
+  parsing; 92% cache hit rate) lifted it 4× from 420K/sec.
+- **API: 28 ms p50 per request**, scaling **~linearly with workers
+  (3.75× on 4)** — the stateless app + DuckDB read-only opens let worker
+  processes share one store. Load testing caught a real concurrency bug
+  (write-lock contention) before it ever hit production.
+- **RPKI validation: 43 µs/call** over 859K records (500× indexed).
+
 ## Deploy
 
 A `Dockerfile` ships the FastAPI surface as a container. The image
 bakes in the bundled YouTube fixture + RIB baseline, so a fresh
 deployment answers `POST /detect/bgp` against the canonical incident
-with no setup. The deployed `/health` endpoint reports the loaded
+with no setup.
+
+**Full local stack** — API (4 workers) + Prometheus + Grafana with the
+metrics dashboard auto-loaded:
+
+```sh
+docker compose up --build      # API :8000 · Prometheus :9090 · Grafana :3000
+```
+ The deployed `/health` endpoint reports the loaded
 baseline size; `/ready` gates on a DuckDB sanity check; `POST
 /detect/bgp` accepts `{start_iso, duration_s}` and returns the same
 alerts the CLI prints, as JSON.

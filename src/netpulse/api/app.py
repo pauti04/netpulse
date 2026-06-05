@@ -97,7 +97,7 @@ def build_app(
 
     baseline: BGPBaseline | None = None
     if baseline_path is not None:
-        with BGPStore(baseline_path) as bs:
+        with BGPStore(baseline_path, read_only=True) as bs:
             baseline = BGPBaseline.from_store(bs)
 
     metrics = MetricsRegistry()
@@ -144,7 +144,7 @@ def build_app(
         """
         requests_total.inc(label_value="ready")
         try:
-            with BGPStore(store_path) as bs:
+            with BGPStore(store_path, read_only=True) as bs:
                 # Cheap COUNT(*) just to confirm the table is queryable.
                 _ = bs.count()
             return {
@@ -170,7 +170,7 @@ def build_app(
             raise HTTPException(status_code=400, detail=str(e)) from e
         end_us = start_us + req.duration_s * 1_000_000
 
-        store = BGPStore(store_path)
+        store = BGPStore(store_path, read_only=True)
         try:
             features = extract_bgp_features(store, start_us, end_us)
         finally:
@@ -234,3 +234,32 @@ def build_app(
         return [_alert_to_out(a) for a in alerts]
 
     return api
+
+
+def create_app() -> FastAPI:
+    """Env-configured app factory for multi-worker servers.
+
+    ``uvicorn``/``gunicorn`` workers each import the app fresh in their own
+    process, so they need an import string + a zero-arg factory rather than
+    a pre-built instance. Reads:
+
+    - ``NETPULSE_STORE``     (required) — BGP DuckDB store path
+    - ``NETPULSE_BASELINE``  (optional) — RIB baseline path
+    - ``NETPULSE_HISTORY``   (optional) — alert-history path
+
+    Used by ``netpulse serve --workers N`` and by the Docker image's
+    production entrypoint. Each worker is fully stateless (no shared
+    mutable state), so throughput scales ~linearly with worker count.
+    """
+    import os
+
+    store = os.environ.get("NETPULSE_STORE")
+    if not store:
+        raise RuntimeError("NETPULSE_STORE must be set for the app factory")
+    baseline = os.environ.get("NETPULSE_BASELINE")
+    history = os.environ.get("NETPULSE_HISTORY")
+    return build_app(
+        store_path=Path(store),
+        baseline_path=Path(baseline) if baseline else None,
+        history_path=Path(history) if history else None,
+    )

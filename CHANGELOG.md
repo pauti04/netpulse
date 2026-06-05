@@ -8,6 +8,25 @@ deployment has soaked, an initial 1.0 will lock the schema.
 
 ## [unreleased]
 
+### Performance
+- **12× faster sub-prefix detector, 4× faster pipeline.** Memoized
+  `ipaddress.ip_network` parsing (a bounded `lru_cache` in
+  `detectors/baseline.py`) — profiling showed octet parsing was ~190 ms
+  of the 240 ms cost, re-parsing every prefix twice per call. Now 20 ms
+  (92% cache hit rate); end-to-end pipeline 420K → **1.71M records/sec**
+  on a real 131K-record RIS window. Behaviour unchanged.
+- **Horizontal API scaling.** `netpulse serve --workers N` runs the new
+  env-configured `create_app()` factory across processes; throughput
+  scales ~linearly (**3.75× on 4 workers**, ~390 req/s) since the app is
+  stateless. Per-request latency 28 ms p50.
+- **Concurrency fix found via load testing.** Multi-worker serving first
+  returned 586/3000 — DuckDB's read-write file lock let only one worker
+  open the store. `BGPStore(read_only=True)` on serving paths fixes it
+  (3000/3000); 4 regression tests added.
+- New `scripts/bench_throughput.py` (reproducible synthetic benchmark),
+  `scripts/loadtest.py` (stdlib API load test), `PERFORMANCE.md`, and a
+  `docker-compose.yml` stack (API + Prometheus + Grafana).
+
 ### Added
 - **`netpulse.ml` — unsupervised anomaly-detection layer** (optional
   `[ml]` extra). An Isolation Forest over 8 scale-invariant per-prefix

@@ -1,0 +1,9 @@
+# Prometheus scrape config for the NetPulse stack.
+global:
+  scrape_interval: 10s
+
+scrape_configs:
+  - job_name: netpulse
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["netpulse:8000"]

@@ -16,10 +16,22 @@ from netpulse.storage.schema import (
 
 
 class BGPStore:
-    def __init__(self, path: str | Path) -> None:
+    def __init__(self, path: str | Path, *, read_only: bool = False) -> None:
+        """Open a DuckDB-backed BGP store.
+
+        ``read_only=True`` opens the file without acquiring the write lock,
+        so multiple processes (e.g. ``uvicorn --workers N``) can share one
+        store concurrently. DuckDB allows only a single read-write opener
+        per file, so serving paths must use ``read_only=True``; the schema
+        is assumed to already exist (no ``CREATE TABLE`` in read-only mode).
+        """
         self.path = Path(path)
-        self._conn: duckdb.DuckDBPyConnection = duckdb.connect(str(self.path))
-        self._conn.execute(CREATE_BGP_RECORDS_TABLE)
+        self.read_only = read_only
+        self._conn: duckdb.DuckDBPyConnection = duckdb.connect(
+            str(self.path), read_only=read_only
+        )
+        if not read_only:
+            self._conn.execute(CREATE_BGP_RECORDS_TABLE)
 
     def __enter__(self) -> BGPStore:
         return self

@@ -2192,6 +2192,14 @@ def serve(
     ] = None,
     host: Annotated[str, typer.Option("--host", help="Bind address.")] = "127.0.0.1",
     port: Annotated[int, typer.Option("--port", help="TCP port.")] = 8000,
+    workers: Annotated[
+        int,
+        typer.Option(
+            "--workers",
+            help="Number of worker processes. >1 runs the stateless app factory "
+            "across processes for ~linear throughput scaling.",
+        ),
+    ] = 1,
     log_format: Annotated[
         str,
         typer.Option(
@@ -2210,16 +2218,34 @@ def serve(
         raise typer.BadParameter("--log-format must be 'json' or 'text'")
     configure_logging(json_mode=(log_format == "json"))
 
-    api = build_app(
-        store_path=store_path,
-        baseline_path=baseline_path,
-        history_path=history_path,
-    )
     console.log(
         f"serving NetPulse on http://{host}:{port} "
-        f"(store={store_path}, baseline={baseline_path}, history={history_path})"
+        f"(store={store_path}, baseline={baseline_path}, history={history_path}, "
+        f"workers={workers})"
     )
-    uvicorn.run(api, host=host, port=port)
+    if workers > 1:
+        # Multi-worker needs an import string + the env-configured factory:
+        # each worker process imports the app fresh. The app is stateless,
+        # so this scales throughput ~linearly with worker count.
+        os.environ["NETPULSE_STORE"] = str(store_path)
+        if baseline_path is not None:
+            os.environ["NETPULSE_BASELINE"] = str(baseline_path)
+        if history_path is not None:
+            os.environ["NETPULSE_HISTORY"] = str(history_path)
+        uvicorn.run(
+            "netpulse.api.app:create_app",
+            host=host,
+            port=port,
+            workers=workers,
+            factory=True,
+        )
+    else:
+        api = build_app(
+            store_path=store_path,
+            baseline_path=baseline_path,
+            history_path=history_path,
+        )
+        uvicorn.run(api, host=host, port=port)
 
 
 @app.command("dashboard")
