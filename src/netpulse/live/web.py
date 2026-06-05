@@ -113,8 +113,12 @@ def _render_page(feed: DetectionFeed) -> str:
  .dot{{width:7px;height:7px;border-radius:50%;background:currentColor;
    box-shadow:0 0 0 0 currentColor;animation:p 1.8s infinite}}
  @keyframes p{{0%{{box-shadow:0 0 0 0 rgba(63,185,80,.5)}}70%{{box-shadow:0 0 0 6px rgba(63,185,80,0)}}100%{{box-shadow:0 0 0 0 rgba(63,185,80,0)}}}}
- .lede{{color:var(--muted);font-size:15px;margin:14px 0 4px;max-width:680px}}
+ .tagline{{color:var(--ink);font-size:18px;font-weight:500;margin:14px 0 0;max-width:700px;line-height:1.45}}
+ .lede{{color:var(--muted);font-size:15px;margin:10px 0 4px;max-width:700px}}
  .lede b{{color:var(--ink);font-weight:600}}
+ .catches{{background:var(--panel);border:1px solid var(--line);border-left:3px solid #e3b341;
+   border-radius:10px;padding:14px 18px;margin:20px 0 4px;max-width:700px;font-size:14px;color:var(--muted)}}
+ .catches b{{color:var(--ink);font-weight:600}}
  .stats{{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:26px 0 8px}}
  .stat{{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px}}
  .stat .n{{font-size:26px;font-weight:700;letter-spacing:-.02em}}
@@ -141,10 +145,17 @@ def _render_page(feed: DetectionFeed) -> str:
  .foot a{{color:var(--accent);text-decoration:none}} .foot a:hover{{text-decoration:underline}}
 </style></head><body><div class=wrap>
 <div class=top><h1>NetPulse</h1>{status_pill}</div>
-<p class=lede>A <b>live monitor of the internet's routing system</b>. Networks use BGP to
-announce which addresses they can reach — a protocol with no built-in security, so a
-bad announcement can hijack or misroute traffic worldwide. NetPulse taps the
-<b>global BGP feed in real time</b> and flags suspicious announcements as they happen.</p>
+<p class=tagline>Watching the internet's traffic-routing system in real time — and catching the
+glitches and attacks that knock sites offline or reroute data through the wrong places.</p>
+<p class=lede>The internet works because networks constantly announce "send traffic for these
+addresses to me." That system (called <b>BGP</b>) has no security — anyone can claim any
+addresses, and others believe them. That's how traffic gets <b>hijacked, stolen, or
+knocked offline</b>. NetPulse listens to these announcements <b>across the whole internet,
+live</b>, and flags the suspicious ones below as they happen.</p>
+<div class=catches>What this kind of monitoring catches: the same routing signals NetPulse
+watches caught — in its historical benchmark — the <b>2008 leak that took YouTube offline
+worldwide</b> and the <b>2018 hijack that redirected Amazon's DNS to steal ~$152,000 in
+cryptocurrency</b>. <b>7 of 7</b> real incidents detected, 0 missed.</div>
 <div class=stats>
  <div class=stat><div class=n>{s["updates_seen"]:,}</div><div class=l>routing updates analyzed</div></div>
  <div class=stat><div class=n>{s["detections_total"]:,}</div><div class=l>anomalies flagged</div></div>
