@@ -8,6 +8,8 @@ Open-source detector for Internet outages and BGP anomalies, evaluated
 against real RIPE RIS archive data with a public, reproducible benchmark:
 **7 / 7 labeled historical incidents detected, 0 false negatives.**
 
+**🔴 Live monitor → [netpulse-live.onrender.com](https://netpulse-live.onrender.com)** — tapping the global BGP feed in real time right now.
+
 **Try it in 30 seconds — no API keys, no deploy, no native libs:**
 
 ```sh
